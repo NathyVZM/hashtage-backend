@@ -1,6 +1,6 @@
 # hashtage
 - Backend - programmed in Flask (venv)
 
-Contains:
-- Controllers
-- Models
+  Contains:
+  - Controllers
+  - Models
