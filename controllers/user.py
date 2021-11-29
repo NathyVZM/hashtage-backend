@@ -1,10 +1,8 @@
 # user.py
 
-from app import db
 from flask import Blueprint, request
 from flask_jwt_extended import create_access_token, create_refresh_token ,get_jwt_identity, jwt_required
 from models.user import User
-import pprint
 
 user_bp = Blueprint('user_bp', __name__)
 
@@ -53,7 +51,7 @@ def login():
         return { 'message': 'Wrong credentials' }
 
 
-# Refresh token
+# refresh_token()
 @user_bp.route('/refresh-token', methods=['POST'])
 @jwt_required(refresh=True)
 def refresh_token():

@@ -25,6 +25,19 @@ def create_post():
     }, 201
 
 
+# delete_post()
 @post_bp.route('/post/<string:post_id>', methods=['DELETE'])
+@jwt_required()
 def delete_post(post_id):
-    pass
+    post = Post.objects(id=post_id).first()
+
+    if post is not None:
+        post.delete()
+        return {
+            '_id': str(post.pk),
+            'author': post.author,
+            'text': post.text,
+            'date': post.date
+        }
+    else:
+        return { 'delete': False, 'message': 'Post not found' }
