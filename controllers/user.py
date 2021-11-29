@@ -1,22 +1,51 @@
+# user.py
+
 from app import db
-from flask import Blueprint, request
+from flask import Blueprint, request, session
 from models.user import User
+import pprint
 
 user_bp = Blueprint('user_bp', __name__)
 
+# register()
 @user_bp.route('/register', methods=['POST'])
-def create_user():
+def register():
     data = request.json
     full_name = data['full_name']
     username = data['username']
     password = data['password']
 
-    user = User(full_name=full_name, username=username, password=password)
-    user.save()
+    user = User(full_name=full_name, username=username, password=User.createPassword(password))
 
-    return {
-        'id': str(user.pk),
-        'full_name': user.full_name,
-        'username': user.username,
-        'password': user.password
-    }
+    try:
+        user.save()
+        return {
+            'id': str(user.pk),
+            'full_name': user.full_name,
+            'username': user.username,
+            'password': user.password
+        }, 201
+    except:
+        return { 'message': 'username already exists' }
+
+
+# login()
+@user_bp.route('/login', methods=['POST'])
+def login():
+    data = request.json
+    username = data['username']
+    password = data['password']
+
+    user = User.objects(username=username).first()
+
+    if user is not None and user.verifyPassword(password):
+        session['_id'] = str(user.pk)
+
+        return {
+            '_id': session['_id'],
+            'full_name': user.full_name,
+            'username': user.username
+        }, 200
+    
+    else:
+        return { 'message': 'username or password not valid' }

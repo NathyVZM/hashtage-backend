@@ -1,6 +1,6 @@
 # app.py
 
-from flask import Flask, session
+from flask import Flask
 from flask_mongoengine import MongoEngine
 from flask_cors import CORS
 from config import *
@@ -17,8 +17,6 @@ db = MongoEngine(app)
 # Enabling CORS
 cors = CORS(app, supports_credentials=True)
 
-
 # Blueprints
 from controllers.user import user_bp
-
 app.register_blueprint(user_bp)
