@@ -10,6 +10,7 @@ app = Flask(__name__)
 
 @app.route('/', methods=['GET'])
 def home():
+    print('Hello World')
     return 'Hello World'
 
 app.config.from_object(ProductionConfig)
