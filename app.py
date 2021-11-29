@@ -3,16 +3,21 @@
 from flask import Flask
 from flask_mongoengine import MongoEngine
 from flask_cors import CORS
+from flask_jwt_extended import JWTManager
 from config import *
-import os
+from datetime import timedelta
 
 app = Flask(__name__)
 
 app.config.from_object(ProductionConfig)
-app.config['MAX_CONTENT_LENGTH'] = 20 * 1000 * 1000 # 20MB
 
 # MongoEngine
 db = MongoEngine(app)
+
+# JWT Configuration
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
+app.config['JWT_REFRESH_TOKEN_EXPIRES'] = timedelta(days=30)
+jwt = JWTManager(app)
 
 # Enabling CORS
 cors = CORS(app, supports_credentials=True)
