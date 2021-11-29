@@ -1,23 +1,22 @@
 from app import db
-from flask import Blueprint
+from flask import Blueprint, request
 from models.user import User
 
 user_bp = Blueprint('user_bp', __name__)
 
-@user_bp.route('/', methods=['GET'])
+@user_bp.route('/register', methods=['POST'])
 def create_user():
-    # users = User.objects().all()
+    data = request.json
+    full_name = data['full_name']
+    username = data['username']
+    password = data['password']
 
-    # for user in users:
-    #     print(user.full_name)
-    #     print(user.username)
-    #     print(user.password)
-
-    # return {
-    #     'users': users
-    # }
-
-    user = User(full_name='test', username='test', password='test')
+    user = User(full_name=full_name, username=username, password=password)
     user.save()
 
-    return user.to_json()
+    return {
+        'id': str(user.pk),
+        'full_name': user.full_name,
+        'username': user.username,
+        'password': user.password
+    }
