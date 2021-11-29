@@ -45,8 +45,6 @@ def login():
 
         return {
             'login': True,
-            'full_name': user.full_name,
-            'username': user.username,
             'accessToken': accessToken,
             'refreshToken': refreshToken
         }, 200

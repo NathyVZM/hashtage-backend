@@ -24,4 +24,7 @@ cors = CORS(app, supports_credentials=True)
 
 # Blueprints
 from controllers.user import user_bp
+from controllers.post import post_bp
+
 app.register_blueprint(user_bp)
+app.register_blueprint(post_bp)
