@@ -17,7 +17,7 @@ def create_user():
     #     'users': users
     # }
 
-    user = User(full_name='Victoria Molero', username='NathyVZM', password='a password here')
+    user = User(full_name='test', username='test', password='test')
     user.save()
 
     return user.to_json()
