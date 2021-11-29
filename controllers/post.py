@@ -41,3 +41,53 @@ def delete_post(post_id):
         }
     else:
         return { 'delete': False, 'message': 'Post not found' }
+
+
+# get_all_posts()
+@post_bp.route('/post', methods=['GET'])
+@jwt_required()
+def get_all_posts():
+    posts_obj = Post.objects()
+
+    posts = []
+
+    for post in posts_obj:
+        p = {
+            '_id': str(post.pk),
+            'author': post.author,
+            'text': post.text,
+            'date': post.date
+        }
+        posts.append(p)
+
+    return { 'posts': posts }, 200
+
+
+# get_user_posts()
+@post_bp.route('/user/<string:user_id>', methods=['GET'])
+@jwt_required()
+def get_user_posts(user_id):
+    user_posts = Post.objects(author=user_id)
+
+    user = {
+        '_id': str(user_posts[0].author.pk),
+        'full_name': user_posts[0].author.full_name,
+        'username': user_posts[0].author.username,
+        'address': user_posts[0].author.address,
+        'birthday': user_posts[0].author.birthday,
+        'bio': user_posts[0].author.bio,
+        'followers': user_posts[0].author.followers,
+        'following': user_posts[0].author.following
+    }
+
+    posts = []
+
+    for post in user_posts:
+        p = {
+            '_id': str(post.pk),
+            'text': post.text,
+            'date': post.date
+        }
+        posts.append(p)
+
+    return { 'user': user, 'posts': posts }, 200
