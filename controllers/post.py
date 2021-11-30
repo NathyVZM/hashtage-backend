@@ -3,6 +3,7 @@
 from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models.post import Post
+from models.retweet import Retweet
 import pprint
 
 post_bp = Blueprint('post_bp', __name__)
@@ -63,13 +64,14 @@ def get_all_posts():
         posts = []
 
         for post in Post.objects(parent=None):
-            p = {
+            posts.append({
                 'id': str(post.pk),
                 'author': post.author,
                 'text': post.text,
-                'date': post.date
-            }
-            posts.append(p)
+                'date': post.date,
+                'img_path': post.img_path,
+                'retweets_count': Retweet.objects(post_id=str(post.pk)).count()
+            })
 
         return { 'get': True, 'posts': posts }, 200
     except:
@@ -138,24 +140,50 @@ def get_post_info(post_id):
             'children': getChildren(str(comment.pk))
         })
 
-    post_dict = {
-        'id': str(post.pk),
-        'author': post.author,
-        'text': post.text,
-        'date': post.date,
-        'img_path': post.img_path,
-        'children': comments
-    }
-
-    pp = pprint.PrettyPrinter(sort_dicts=False)
-    pp.pprint(post_dict)
-
-
     return {
         'id': str(post.pk),
         'author': post.author,
         'text': post.text,
         'date': post.date,
         'img_path': post.img_path,
+        'retweets_count': Retweet.objects(post_id=post_id).count(),
         'children': comments
     }
+
+
+# retweet()
+@post_bp.route('/post/retweet/<string:post_id>', methods=['POST'])
+@jwt_required()
+def retweet(post_id):
+    retweet = Retweet(user_id=get_jwt_identity(), post_id=post_id)
+    retweet.save()
+
+    return {
+        'created': True,
+        'retweet': {
+            'id': str(retweet.pk),
+            'user_id': retweet.user_id,
+            'post_id': retweet.post_id
+        }
+    }, 201
+
+
+# unretweet()
+@post_bp.route('/post/retweet/<string:retweet_id>', methods=['DELETE'])
+@jwt_required()
+def unretweet(retweet_id):
+    retweet = Retweet.objects(id=retweet_id).first()
+
+    if retweet is not None:
+        retweet.delete()
+
+        return {
+            'deleted': True,
+            'retweet': {
+                'id': str(retweet.pk),
+                'user_id': retweet.user_id,
+                'post_id': retweet.post_id
+            }
+        }, 200
+    else:
+        return { 'deleted': False, 'message': 'Retweet not found' }
