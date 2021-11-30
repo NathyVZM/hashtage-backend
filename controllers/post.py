@@ -53,7 +53,7 @@ def delete_post(post_id):
             }
         }, 200
     else:
-        return { 'deleted': False, 'message': 'Post not found' }
+        return { 'deleted': False, 'message': 'Post not found' }, 409
 
 
 # get_all_posts()
@@ -75,7 +75,7 @@ def get_all_posts():
 
         return { 'get': True, 'posts': posts }, 200
     except:
-        return { 'get': False, 'message': 'No posts' }
+        return { 'get': False, 'message': 'No posts' }, 409
 
 
 # create_comment()
@@ -186,4 +186,4 @@ def unretweet(retweet_id):
             }
         }, 200
     else:
-        return { 'deleted': False, 'message': 'Retweet not found' }
+        return { 'deleted': False, 'message': 'Retweet not found' }, 409

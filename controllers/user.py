@@ -4,6 +4,7 @@ from flask import Blueprint, request
 from flask_jwt_extended import create_access_token, create_refresh_token ,get_jwt_identity, jwt_required
 from models.user import User
 from models.post import Post
+from models.retweet import Retweet
 
 user_bp = Blueprint('user_bp', __name__)
 
@@ -29,7 +30,7 @@ def register():
             }
         }, 201
     except:
-        return { 'created': False, 'message': 'Username already exists' }
+        return { 'created': False, 'message': 'Username already exists' }, 409
 
 
 # login()
@@ -52,7 +53,7 @@ def login():
         }, 200
     
     else:
-        return { 'login': False, 'message': 'Wrong credentials' }
+        return { 'login': False, 'message': 'Wrong credentials' }, 409
 
 
 # refresh_token()
@@ -69,37 +70,48 @@ def refresh_token():
 @user_bp.route('/user/<string:user_id>', methods=['GET'])
 @jwt_required()
 def get_user_posts(user_id):
+    user_obj = User.objects(id=user_id).first()
+
+    user = {
+        'id': str(user_obj.pk),
+        'full_name': user_obj.full_name,
+        'username': user_obj.username,
+        'address': user_obj.address,
+        'birthday': user_obj.birthday,
+        'bio': user_obj.bio,
+        'followers': user_obj.followers,
+        'following': user_obj.following
+    }
     try:
-        user_posts = Post.objects(author=user_id)
-
-        user = {
-            'id': str(user_posts[0].author.pk),
-            'full_name': user_posts[0].author.full_name,
-            'username': user_posts[0].author.username,
-            'address': user_posts[0].author.address,
-            'birthday': user_posts[0].author.birthday,
-            'bio': user_posts[0].author.bio,
-            'followers': user_posts[0].author.followers,
-            'following': user_posts[0].author.following
-        }
-
         posts = []
 
-        for post in user_posts:
+        for post in Post.objects(author=user_id):
             posts.append({
                 'id': str(post.pk),
                 'text': post.text,
                 'date': post.date,
-                'img_path': post.img_path
+                'img_path': post.img_path,
+                'retweets_count': Retweet.objects(post_id=str(post.pk)).count()
             })
+    except:
+        pass
+    
+    try:
+        retweets = []
+        for retweet in Retweet.objects(user_id=user['id']):
+            retweets.append({
+                'id': str(retweet.pk),
+                'post_id': retweet.post_id
+            })
+    except:
+        pass
 
-        return {
+    return {
             'get': True,
             'user': user,
-            'posts': posts
+            'posts': posts,
+            'retweets': retweets
         }, 200
-    except:
-        return { 'get': False, 'message': 'No posts on this user'}
 
 
 # logout()
