@@ -28,7 +28,7 @@ def register():
             }
         }, 201
     except:
-        return { 'message': 'username already exists' }
+        return { 'created': False, 'message': 'Username already exists' }
 
 
 # login()
@@ -51,7 +51,7 @@ def login():
         }, 200
     
     else:
-        return { 'message': 'Wrong credentials' }
+        return { 'login': False, 'message': 'Wrong credentials' }
 
 
 # refresh_token()
@@ -68,4 +68,4 @@ def refresh_token():
 @user_bp.route('/logout', methods=['POST'])
 @jwt_required()
 def logout():
-    return { 'logout': True }, 200
+    return { 'logout': True, 'user_id': get_jwt_identity() }, 200
