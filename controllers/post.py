@@ -23,7 +23,7 @@ def create_post():
     return {
         'created': True,
         'post': {
-            '_id': str(post.pk),
+            'id': str(post.pk),
             'author': post.author,
             'text': post.text,
             'date': post.date
@@ -40,16 +40,16 @@ def delete_post(post_id):
     if post is not None:
         post.delete()
         return {
-            'delete': True,
+            'deleted': True,
             'post': {
-                '_id': str(post.pk),
+                'id': str(post.pk),
                 'author': post.author,
                 'text': post.text,
                 'date': post.date
             }
         }, 200
     else:
-        return { 'delete': False, 'message': 'Post not found' }
+        return { 'deleted': False, 'message': 'Post not found' }
 
 
 # get_all_posts()
@@ -62,7 +62,7 @@ def get_all_posts():
 
     for post in posts_obj:
         p = {
-            '_id': str(post.pk),
+            'id': str(post.pk),
             'author': post.author,
             'text': post.text,
             'date': post.date
@@ -79,7 +79,7 @@ def get_user_posts(user_id):
     user_posts = Post.objects(author=user_id)
 
     user = {
-        '_id': str(user_posts[0].author.pk),
+        'id': str(user_posts[0].author.pk),
         'full_name': user_posts[0].author.full_name,
         'username': user_posts[0].author.username,
         'address': user_posts[0].author.address,
@@ -93,9 +93,10 @@ def get_user_posts(user_id):
 
     for post in user_posts:
         p = {
-            '_id': str(post.pk),
+            'id': str(post.pk),
             'text': post.text,
-            'date': post.date
+            'date': post.date,
+            'img_path': post.img_path
         }
         posts.append(p)
 
@@ -119,7 +120,7 @@ def create_comment(post_id):
     return {
         'created': True,
         'comment': {
-            '_id': str(comment.pk),
+            'id': str(comment.pk),
             'text': comment.text,
             'author': comment.author,
             'date': comment.date,
