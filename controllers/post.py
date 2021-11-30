@@ -13,23 +13,20 @@ def create_post():
     data = request.form
     author = get_jwt_identity()
     text = data['text']
-    files = request.files.getlist('files')
-
-    # for file in files:
-    #     print(file.filename)
 
     post = Post(author=author, text=text)
     post.save()
-    post.update(img_path=f'hashtage/{str(post.author.pk)}/{str(post.pk)}')
 
+    if 'files' in request.files:
+        post.update(img_path=f'hashtage/{str(post.author.pk)}/{str(post.pk)}')
+    
     return {
         'created': True,
         'post': {
             '_id': str(post.pk),
             'author': post.author,
             'text': post.text,
-            'date': post.date,
-            'img_path': post.img_path
+            'date': post.date
         }
     }, 201
 
@@ -103,3 +100,12 @@ def get_user_posts(user_id):
         posts.append(p)
 
     return { 'user': user, 'posts': posts }, 200
+
+
+# create_comment()
+@post_bp.route('/post/comment/<string:post_id>', methods=['POST'])
+@jwt_required()
+def create_comment(post_id):
+    return {
+        '_id': post_id
+    }
