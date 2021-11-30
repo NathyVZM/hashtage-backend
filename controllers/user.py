@@ -19,10 +19,13 @@ def register():
     try:
         user.save()
         return {
-            'id': str(user.pk),
-            'full_name': user.full_name,
-            'username': user.username,
-            'password': user.password
+            'created': True,
+            'user': {
+                'id': str(user.pk),
+                'full_name': user.full_name,
+                'username': user.username,
+                'password': user.password
+            }
         }, 201
     except:
         return { 'message': 'username already exists' }
