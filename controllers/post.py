@@ -17,7 +17,7 @@ def create_post():
     post = Post(author=author, text=text)
     post.save()
 
-    if 'files' in request.files:
+    if 'images' in request.files:
         post.update(img_path=f'hashtage/{str(post.author.pk)}/{str(post.pk)}')
     
     return {
@@ -106,6 +106,24 @@ def get_user_posts(user_id):
 @post_bp.route('/post/comment/<string:post_id>', methods=['POST'])
 @jwt_required()
 def create_comment(post_id):
+    data = request.form
+    author = get_jwt_identity()
+    text = data['text']
+
+    comment = Post(author=author, text=text, parent=post_id)
+    comment.save()
+
+    if 'images' in request.files:
+        comment.update(img_path=f'hashtage/{str(comment.author.pk)}/{str(comment.pk)}')
+        
     return {
-        '_id': post_id
+        'created': True,
+        'comment': {
+            '_id': str(comment.pk),
+            'text': comment.text,
+            'author': comment.author,
+            'date': comment.date,
+            'img_path': comment.img_path,
+            'parent': comment.parent
+        }
     }
