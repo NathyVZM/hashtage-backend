@@ -115,6 +115,7 @@ def getChildren(comment_parent):
             'date': comment.date,
             'img_path': comment.img_path,
             'parent': comment.parent,
+            'retweets_count': Retweet.objects(post_id=str(comment.pk)).count(),
             'children': getChildren(str(comment.pk))
         })
     
@@ -137,6 +138,7 @@ def get_post_info(post_id):
             'date': comment.date,
             'img_path': comment.img_path,
             'parent': comment.parent,
+            'retweets_count': Retweet.objects(post_id=str(comment.pk)).count(),
             'children': getChildren(str(comment.pk))
         })
 
