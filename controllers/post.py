@@ -13,15 +13,24 @@ def create_post():
     data = request.form
     author = get_jwt_identity()
     text = data['text']
+    files = request.files.getlist('files')
+
+    # for file in files:
+    #     print(file.filename)
 
     post = Post(author=author, text=text)
     post.save()
+    post.update(img_path=f'hashtage/{str(post.author.pk)}/{str(post.pk)}')
 
     return {
-        '_id': str(post.pk),
-        'author': post.author,
-        'text': post.text,
-        'date': post.date
+        'created': True,
+        'post': {
+            '_id': str(post.pk),
+            'author': post.author,
+            'text': post.text,
+            'date': post.date,
+            'img_path': post.img_path
+        }
     }, 201
 
 
@@ -34,11 +43,14 @@ def delete_post(post_id):
     if post is not None:
         post.delete()
         return {
-            '_id': str(post.pk),
-            'author': post.author,
-            'text': post.text,
-            'date': post.date
-        }
+            'delete': True,
+            'post': {
+                '_id': str(post.pk),
+                'author': post.author,
+                'text': post.text,
+                'date': post.date
+            }
+        }, 200
     else:
         return { 'delete': False, 'message': 'Post not found' }
 
