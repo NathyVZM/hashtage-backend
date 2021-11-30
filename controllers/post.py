@@ -72,37 +72,6 @@ def get_all_posts():
     return { 'posts': posts }, 200
 
 
-# get_user_posts()
-@post_bp.route('/user/<string:user_id>', methods=['GET'])
-@jwt_required()
-def get_user_posts(user_id):
-    user_posts = Post.objects(author=user_id)
-
-    user = {
-        'id': str(user_posts[0].author.pk),
-        'full_name': user_posts[0].author.full_name,
-        'username': user_posts[0].author.username,
-        'address': user_posts[0].author.address,
-        'birthday': user_posts[0].author.birthday,
-        'bio': user_posts[0].author.bio,
-        'followers': user_posts[0].author.followers,
-        'following': user_posts[0].author.following
-    }
-
-    posts = []
-
-    for post in user_posts:
-        p = {
-            'id': str(post.pk),
-            'text': post.text,
-            'date': post.date,
-            'img_path': post.img_path
-        }
-        posts.append(p)
-
-    return { 'user': user, 'posts': posts }, 200
-
-
 # create_comment()
 @post_bp.route('/post/comment/<string:post_id>', methods=['POST'])
 @jwt_required()

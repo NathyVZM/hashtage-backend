@@ -3,6 +3,7 @@
 from flask import Blueprint, request
 from flask_jwt_extended import create_access_token, create_refresh_token ,get_jwt_identity, jwt_required
 from models.user import User
+from models.post import Post
 
 user_bp = Blueprint('user_bp', __name__)
 
@@ -62,6 +63,44 @@ def refresh_token():
     accessToken = create_access_token(identity=id_jwt)
 
     return { 'accessToken': accessToken }, 200
+
+
+# get_user_posts()
+@user_bp.route('/user/<string:user_id>', methods=['GET'])
+@jwt_required()
+def get_user_posts(user_id):
+    try:
+        user_posts = Post.objects(author=user_id)
+
+        user = {
+            'id': str(user_posts[0].author.pk),
+            'full_name': user_posts[0].author.full_name,
+            'username': user_posts[0].author.username,
+            'address': user_posts[0].author.address,
+            'birthday': user_posts[0].author.birthday,
+            'bio': user_posts[0].author.bio,
+            'followers': user_posts[0].author.followers,
+            'following': user_posts[0].author.following
+        }
+
+        posts = []
+
+        for post in user_posts:
+            p = {
+                'id': str(post.pk),
+                'text': post.text,
+                'date': post.date,
+                'img_path': post.img_path
+            }
+            posts.append(p)
+
+        return {
+            'get': True,
+            'user': user,
+            'posts': posts
+        }, 200
+    except:
+        return { 'get': False, 'message': 'No posts on this user'}
 
 
 # logout()
