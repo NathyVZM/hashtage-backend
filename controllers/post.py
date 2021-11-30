@@ -3,6 +3,7 @@
 from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models.post import Post
+import pprint
 
 post_bp = Blueprint('post_bp', __name__)
 
@@ -26,7 +27,8 @@ def create_post():
             'id': str(post.pk),
             'author': post.author,
             'text': post.text,
-            'date': post.date
+            'date': post.date,
+            'img_path': post.img_path
         }
     }, 201
 
@@ -45,7 +47,8 @@ def delete_post(post_id):
                 'id': str(post.pk),
                 'author': post.author,
                 'text': post.text,
-                'date': post.date
+                'date': post.date,
+                'img_path': post.img_path
             }
         }, 200
     else:
@@ -56,20 +59,21 @@ def delete_post(post_id):
 @post_bp.route('/post', methods=['GET'])
 @jwt_required()
 def get_all_posts():
-    posts_obj = Post.objects()
+    try:
+        posts = []
 
-    posts = []
+        for post in Post.objects(parent=None):
+            p = {
+                'id': str(post.pk),
+                'author': post.author,
+                'text': post.text,
+                'date': post.date
+            }
+            posts.append(p)
 
-    for post in posts_obj:
-        p = {
-            'id': str(post.pk),
-            'author': post.author,
-            'text': post.text,
-            'date': post.date
-        }
-        posts.append(p)
-
-    return { 'posts': posts }, 200
+        return { 'get': True, 'posts': posts }, 200
+    except:
+        return { 'get': False, 'message': 'No posts' }
 
 
 # create_comment()
@@ -97,3 +101,61 @@ def create_comment(post_id):
             'parent': comment.parent
         }
     }, 201
+
+# FUNCTION getChildren()
+def getChildren(comment_parent):
+    children = []
+    for comment in Post.objects(parent=comment_parent):
+        children.append({
+            'id': str(comment.pk),
+            'author': comment.author,
+            'text': comment.text,
+            'date': comment.date,
+            'img_path': comment.img_path,
+            'parent': comment.parent,
+            'children': getChildren(str(comment.pk))
+        })
+    
+    return children
+    
+
+# get_post_info()
+@post_bp.route('/post/<string:post_id>', methods=['GET'])
+@jwt_required()
+def get_post_info(post_id):
+    post = Post.objects(id=post_id).first()
+    
+    comments = []
+
+    for comment in Post.objects(parent=post_id):
+        comments.append({
+            'id': str(comment.pk),
+            'author': comment.author,
+            'text': comment.text,
+            'date': comment.date,
+            'img_path': comment.img_path,
+            'parent': comment.parent,
+            'children': getChildren(str(comment.pk))
+        })
+
+    post_dict = {
+        'id': str(post.pk),
+        'author': post.author,
+        'text': post.text,
+        'date': post.date,
+        'img_path': post.img_path,
+        'children': comments
+    }
+
+    pp = pprint.PrettyPrinter(sort_dicts=False)
+    pp.pprint(post_dict)
+
+
+    return {
+        'id': str(post.pk),
+        'author': post.author,
+        'text': post.text,
+        'date': post.date,
+        'img_path': post.img_path,
+        'children': comments
+    }

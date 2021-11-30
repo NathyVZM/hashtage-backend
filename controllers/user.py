@@ -86,13 +86,12 @@ def get_user_posts(user_id):
         posts = []
 
         for post in user_posts:
-            p = {
+            posts.append({
                 'id': str(post.pk),
                 'text': post.text,
                 'date': post.date,
                 'img_path': post.img_path
-            }
-            posts.append(p)
+            })
 
         return {
             'get': True,
