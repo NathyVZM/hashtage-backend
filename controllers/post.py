@@ -115,7 +115,7 @@ def create_comment(post_id):
 
     if 'images' in request.files:
         comment.update(img_path=f'hashtage/{str(comment.author.pk)}/{str(comment.pk)}')
-        
+
     return {
         'created': True,
         'comment': {
@@ -126,4 +126,4 @@ def create_comment(post_id):
             'img_path': comment.img_path,
             'parent': comment.parent
         }
-    }
+    }, 201
