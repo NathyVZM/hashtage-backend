@@ -1,6 +1,5 @@
 # post.py
 
-from sys import prefix
 from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models.user import User
@@ -9,7 +8,6 @@ from models.retweet import Retweet
 from mongoengine.queryset.visitor import Q
 from cloudinary import uploader, api
 import time
-import pprint
 
 post_bp = Blueprint('post_bp', __name__)
 
