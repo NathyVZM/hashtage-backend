@@ -6,7 +6,7 @@ from models.user import User
 from models.post import Post
 from models.retweet import Retweet
 from mongoengine.queryset.visitor import Q
-from cloudinary import uploader
+from cloudinary import uploader, api
 import time
 import pprint
 
@@ -51,6 +51,8 @@ def delete_post(post_id):
 
     if post is not None:
         post.delete()
+        api.delete_resources_by_prefix(post.img_path)
+        api.delete_folder(post.img_path)
         return {
             'deleted': True,
             'post': {
