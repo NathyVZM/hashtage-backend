@@ -1,5 +1,6 @@
 # post.py
 
+from sys import prefix
 from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models.user import User
@@ -74,13 +75,19 @@ def get_all_posts():
     try:
         posts = []
 
-        for post in Post.objects(parent=None):
+        for post in Post.objects():
+            if post.img_path is not None:
+                images_resources = api.resources(type='upload', prefix=post.img_path)['resources']
+                images = [image['secure_url'] for image in images_resources]
+            else:
+                images = []
+            
             posts.append({
                 'id': str(post.pk),
                 'author': post.author,
                 'text': post.text,
                 'date': post.date,
-                'img_path': post.img_path,
+                'images': images,
                 'retweets_count': Retweet.objects(post_id=str(post.pk)).count()
             })
 
@@ -123,13 +130,20 @@ def create_comment(post_id):
 # FUNCTION getChildren()
 def getChildren(comment_parent):
     children = []
+
     for comment in Post.objects(parent=comment_parent):
+        if comment.img_path is not None:
+            images_resources = api.resources(type='upload', prefix=comment.img_path)['resources']
+            images = [image['secure_url'] for image in images_resources]
+        else:
+            images = []
+        
         children.append({
             'id': str(comment.pk),
             'author': comment.author,
             'text': comment.text,
             'date': comment.date,
-            'img_path': comment.img_path,
+            'images': images,
             'parent': comment.parent,
             'retweets_count': Retweet.objects(post_id=str(comment.pk)).count(),
             'children': getChildren(str(comment.pk))
@@ -143,27 +157,39 @@ def getChildren(comment_parent):
 @jwt_required()
 def get_post_info(post_id):
     post = Post.objects(id=post_id).first()
-    
+
+    if post.img_path is not None:
+        images_resources = api.resources(type='upload', prefix=post.img_path)['resources']
+        images = [image['secure_url'] for image in images_resources]
+    else:
+        images = []
+
     comments = []
 
     for comment in Post.objects(parent=post_id):
+        if comment.img_path is not None:
+            comment_resources = api.resources(type='upload', prefix=comment.img_path)['resources']
+            comment_images = [image['secure_url'] for image in comment_resources]
+        else:
+            comment_images = []
+
         comments.append({
             'id': str(comment.pk),
             'author': comment.author,
             'text': comment.text,
             'date': comment.date,
-            'img_path': comment.img_path,
+            'images': comment_images,
             'parent': comment.parent,
             'retweets_count': Retweet.objects(post_id=str(comment.pk)).count(),
             'children': getChildren(str(comment.pk))
         })
-
+        
     return {
         'id': str(post.pk),
         'author': post.author,
         'text': post.text,
         'date': post.date,
-        'img_path': post.img_path,
+        'images': images,
         'retweets_count': Retweet.objects(post_id=post_id).count(),
         'children': comments
     }
@@ -213,29 +239,33 @@ def unretweet(retweet_id):
 def search(text):
     posts = []
 
-    for post in Post.objects(text__contains=text, parent=None):
+    for post in Post.objects(text__contains=text):
+        if post.img_path is not None:
+            images_resources = api.resources(type='upload', prefix=post.img_path)['resources']
+            images = [image['secure_url'] for image in images_resources]
+        else:
+            images = []
+        
         posts.append({
             'id': str(post.pk),
             'author': post.author,
             'text': post.text,
             'date': post.date,
-            'img_path': post.img_path,
+            'images': images,
             'retweets_count': Retweet.objects(post_id=str(post.pk)).count()
         })
-    
-    users = []
 
-    for user in User.objects(Q(username__contains=text) | Q(full_name__contains=text)):
-        users.append({
-            'id': str(user.pk),
-            'full_name': user.full_name,
-            'username': user.username,
-            'address': user.address,
-            'birthday': user.birthday,
-            'bio': user.bio,
-            'followers': user.followers,
-            'following': user.following
-        })
+    users = [{
+        'id': str(user.pk),
+        'full_name': user.full_name,
+        'username': user.username,
+        'address': user.address,
+        'birthday': user.birthday,
+        'bio': user.bio,
+        'followers': user.followers,
+        'following': user.following
+    } for user in User.objects(Q(username__contains=text) | Q(full_name__contains=text))]
+
     return {
         'posts': posts,
         'users': users
