@@ -6,6 +6,7 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from config import *
 from datetime import timedelta
+from cloudinary import config
 
 app = Flask(__name__)
 
@@ -21,6 +22,9 @@ jwt = JWTManager(app)
 
 # Enabling CORS
 cors = CORS(app, supports_credentials=True)
+
+# Cloudinary
+config(cloud_name=os.environ['CLOUD_NAME'], api_key=os.environ['API_KEY'], api_secret=os.environ['API_SECRET'])
 
 # Blueprints
 from controllers.user import user_bp

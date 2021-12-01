@@ -6,6 +6,8 @@ from models.user import User
 from models.post import Post
 from models.retweet import Retweet
 from mongoengine.queryset.visitor import Q
+from cloudinary import uploader
+import time
 import pprint
 
 post_bp = Blueprint('post_bp', __name__)
@@ -23,6 +25,11 @@ def create_post():
 
     if 'images' in request.files:
         post.update(img_path=f'hashtage/{str(post.author.pk)}/{str(post.pk)}')
+
+        for index, image in enumerate(request.files.getlist('images'), start=1):
+            print(index, image.filename)
+            uploader.upload_image(image, folder=f'hashtage/{str(post.author.pk)}/{str(post.pk)}', 
+            public_id=str(time.time()))
     
     return {
         'created': True,
