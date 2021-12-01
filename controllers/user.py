@@ -82,29 +82,25 @@ def get_user_posts(user_id):
         'followers': user_obj.followers,
         'following': user_obj.following
     }
-    try:
-        posts = []
 
-        for post in Post.objects(author=user_id):
-            posts.append({
-                'id': str(post.pk),
-                'text': post.text,
-                'date': post.date,
-                'img_path': post.img_path,
-                'retweets_count': Retweet.objects(post_id=str(post.pk)).count()
-            })
-    except:
-        pass
-    
-    try:
-        retweets = []
-        for retweet in Retweet.objects(user_id=user['id']):
-            retweets.append({
-                'id': str(retweet.pk),
-                'post_id': retweet.post_id
-            })
-    except:
-        pass
+    posts = []
+
+    for post in Post.objects(author=user_id):
+        posts.append({
+            'id': str(post.pk),
+            'text': post.text,
+            'date': post.date,
+            'img_path': post.img_path,
+            'retweets_count': Retweet.objects(post_id=str(post.pk)).count()
+        })
+
+    retweets = []
+
+    for retweet in Retweet.objects(user_id=user_id):
+        retweets.append({
+            'id': str(retweet.pk),
+            'post_id': retweet.post_id
+        })
 
     return {
             'get': True,

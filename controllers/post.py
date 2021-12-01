@@ -2,8 +2,10 @@
 
 from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from models.user import User
 from models.post import Post
 from models.retweet import Retweet
+from mongoengine.queryset.visitor import Q
 import pprint
 
 post_bp = Blueprint('post_bp', __name__)
@@ -104,6 +106,7 @@ def create_comment(post_id):
         }
     }, 201
 
+
 # FUNCTION getChildren()
 def getChildren(comment_parent):
     children = []
@@ -189,3 +192,38 @@ def unretweet(retweet_id):
         }, 200
     else:
         return { 'deleted': False, 'message': 'Retweet not found' }, 409
+    
+
+# search()
+@post_bp.route('/search/<string:text>', methods=['POST'])
+@jwt_required()
+def search(text):
+    posts = []
+
+    for post in Post.objects(text__contains=text, parent=None):
+        posts.append({
+            'id': str(post.pk),
+            'author': post.author,
+            'text': post.text,
+            'date': post.date,
+            'img_path': post.img_path,
+            'retweets_count': Retweet.objects(post_id=str(post.pk)).count()
+        })
+    
+    users = []
+
+    for user in User.objects(Q(username__contains=text) | Q(full_name__contains=text)):
+        users.append({
+            'id': str(user.pk),
+            'full_name': user.full_name,
+            'username': user.username,
+            'address': user.address,
+            'birthday': user.birthday,
+            'bio': user.bio,
+            'followers': user.followers,
+            'following': user.following
+        })
+    return {
+        'posts': posts,
+        'users': users
+    }, 200
