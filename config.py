@@ -17,4 +17,4 @@ class ProductionConfig(Config):
 
 class DevelopmentConfig(Config):
     DEVELOPMENT = True
-    DEBUT = True
+    DEBUG = True
