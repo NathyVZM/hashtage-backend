@@ -252,6 +252,7 @@ def search(text):
             'text': post.text,
             'date': post.date,
             'images': images,
+            'parent': post.parent,
             'retweets_count': Retweet.objects(post_id=str(post.pk)).count()
         })
 

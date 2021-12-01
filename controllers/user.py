@@ -1,10 +1,12 @@
 # user.py
 
+from sys import prefix
 from flask import Blueprint, request
 from flask_jwt_extended import create_access_token, create_refresh_token ,get_jwt_identity, jwt_required
 from models.user import User
 from models.post import Post
 from models.retweet import Retweet
+from cloudinary import api
 
 user_bp = Blueprint('user_bp', __name__)
 
@@ -83,13 +85,23 @@ def get_user_posts(user_id):
         'following': user_obj.following
     }
 
-    posts = [{
-        'id': str(post.pk),
-        'text': post.text,
-        'date': post.date,
-        'img_path': post.img_path,
-        'retweets_count': Retweet.objects(post_id=str(post.pk)).count()
-    } for post in Post.objects(author=user_id)]
+    posts = []
+
+    for post in Post.objects(author=user_id):
+        if post.img_path is not None:
+            images_resources = api.resources(type='upload', prefix=post.img_path)['resources']
+            images = [image['secure_url'] for image in images_resources]
+        else:
+            images = []
+        
+        posts.append({
+            'id': str(post.pk),
+            'text': post.text,
+            'date': post.date,
+            'images': images,
+            'retweets_count': Retweet.objects(post_id=str(post.pk)).count()
+        })
+
 
     retweets = [{
         'id': str(retweet.pk),
