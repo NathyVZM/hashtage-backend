@@ -73,7 +73,7 @@ def get_all_posts():
     try:
         posts = []
 
-        for post in Post.objects():
+        for post in Post.objects(parent=None):
             if post.img_path is not None:
                 images_resources = api.resources(type='upload', prefix=post.img_path)['resources']
                 images = [image['secure_url'] for image in images_resources]
