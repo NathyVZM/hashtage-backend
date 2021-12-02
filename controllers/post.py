@@ -97,6 +97,7 @@ def get_all_posts():
                 'text': post.text,
                 'date': post.date,
                 'images': images,
+                'retweets': retweets,
                 'retweets_count': Retweet.objects(post_id=str(post.pk)).count(),
                 'didRetweet': didRetweet,
                 'comments_count': Post.objects(parent=str(post.pk)).count()
