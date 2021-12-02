@@ -86,7 +86,8 @@ def get_all_posts():
                 'text': post.text,
                 'date': post.date,
                 'images': images,
-                'retweets_count': Retweet.objects(post_id=str(post.pk)).count()
+                'retweets_count': Retweet.objects(post_id=str(post.pk)).count(),
+                'comments_count': Post.objects(parent=str(post.pk)).count()
             })
 
         return { 'get': True, 'posts': posts }, 200
@@ -144,6 +145,7 @@ def getChildren(comment_parent):
             'images': images,
             'parent': comment.parent,
             'retweets_count': Retweet.objects(post_id=str(comment.pk)).count(),
+            'comments_count': Post.objects(parent=str(comment.pk)).count(),
             'children': getChildren(str(comment.pk))
         })
     
@@ -179,6 +181,7 @@ def get_post_info(post_id):
             'images': comment_images,
             'parent': comment.parent,
             'retweets_count': Retweet.objects(post_id=str(comment.pk)).count(),
+            'comments_count': Post.objects(parent=str(comment.pk)).count(),
             'children': getChildren(str(comment.pk))
         })
         
@@ -189,6 +192,7 @@ def get_post_info(post_id):
         'date': post.date,
         'images': images,
         'retweets_count': Retweet.objects(post_id=post_id).count(),
+        'comments_count': Post.objects(parent=post_id).count(),
         'children': comments
     }
 
@@ -237,7 +241,7 @@ def unretweet(retweet_id):
 def search(text):
     posts = []
 
-    for post in Post.objects(text__contains=text):
+    for post in Post.objects(text__icontains=text):
         if post.img_path is not None:
             images_resources = api.resources(type='upload', prefix=post.img_path)['resources']
             images = [image['secure_url'] for image in images_resources]
@@ -251,7 +255,8 @@ def search(text):
             'date': post.date,
             'images': images,
             'parent': post.parent,
-            'retweets_count': Retweet.objects(post_id=str(post.pk)).count()
+            'retweets_count': Retweet.objects(post_id=str(post.pk)).count(),
+            'comments_count': Post.objects(parent=str(post.pk)).count()
         })
 
     users = [{
@@ -263,7 +268,7 @@ def search(text):
         'bio': user.bio,
         'followers': user.followers,
         'following': user.following
-    } for user in User.objects(Q(username__contains=text) | Q(full_name__contains=text))]
+    } for user in User.objects(Q(username__icontains=text) | Q(full_name__icontains=text))]
 
     return {
         'posts': posts,
