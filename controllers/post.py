@@ -81,10 +81,15 @@ def get_all_posts():
                 images = []
             
             didRetweet = False
-            
+            retweets = []
             for retweet in Retweet.objects(post_id=str(post.pk)):
                 if str(retweet.user_id.pk) == get_jwt_identity():
                     didRetweet = True
+                retweets.append({
+                    'id': str(retweet.pk),
+                    'user_id': retweet.user_id,
+                    'post_id': retweet.post_id
+                })
             
             posts.append({
                 'id': str(post.pk),
@@ -261,7 +266,7 @@ def unretweet(retweet_id):
     
 
 # search()
-@post_bp.route('/search/<string:text>', methods=['POST'])
+@post_bp.route('/search/<string:text>', methods=['GET'])
 @jwt_required()
 def search(text):
     posts = []
