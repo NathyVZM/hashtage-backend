@@ -91,6 +91,10 @@ def get_all_posts():
                     'post_id': retweet.post_id
                 })
             
+            isAuthor = False,
+            if get_jwt_identity() == str(post.author.pk):
+                isAuthor = True
+            
             posts.append({
                 'id': str(post.pk),
                 'author': post.author,
@@ -100,7 +104,8 @@ def get_all_posts():
                 'retweets': retweets,
                 'retweets_count': Retweet.objects(post_id=str(post.pk)).count(),
                 'didRetweet': didRetweet,
-                'comments_count': Post.objects(parent=str(post.pk)).count()
+                'comments_count': Post.objects(parent=str(post.pk)).count(),
+                'isAuthor': isAuthor
             })
 
         return { 'get': True, 'posts': posts }, 200
@@ -155,6 +160,10 @@ def getChildren(comment_parent):
             if str(retweet.user_id.pk) == get_jwt_identity():
                 didRetweet = True
         
+        isAuthor = False
+        if get_jwt_identity() == str(comment.author.pk):
+            isAuthor = True
+        
         children.append({
             'id': str(comment.pk),
             'author': comment.author,
@@ -165,7 +174,8 @@ def getChildren(comment_parent):
             'retweets_count': Retweet.objects(post_id=str(comment.pk)).count(),
             'didRetweet': didRetweet,
             'comments_count': Post.objects(parent=str(comment.pk)).count(),
-            'children': getChildren(str(comment.pk))
+            'children': getChildren(str(comment.pk)),
+            'isAuthor': isAuthor
         })
     
     return children
@@ -201,6 +211,10 @@ def get_post_info(post_id):
         for retweet in Retweet.objects(post_id=str(comment.pk)):
             if str(retweet.user_id.pk) == get_jwt_identity():
                 didRetweetComment = True
+        
+        isAuthorComment = False
+        if get_jwt_identity() == str(comment.author.pk):
+            isAuthorComment = True
 
         comments.append({
             'id': str(comment.pk),
@@ -212,8 +226,13 @@ def get_post_info(post_id):
             'retweets_count': Retweet.objects(post_id=str(comment.pk)).count(),
             'didRetweet': didRetweetComment,
             'comments_count': Post.objects(parent=str(comment.pk)).count(),
-            'children': getChildren(str(comment.pk))
+            'children': getChildren(str(comment.pk)),
+            'isAuthor': isAuthorComment
         })
+    
+    isAuthor = False
+    if get_jwt_identity() == str(post.author.id):
+        isAuthor = True
         
     return {
         'id': str(post.pk),
@@ -224,7 +243,8 @@ def get_post_info(post_id):
         'retweets_count': Retweet.objects(post_id=post_id).count(),
         'didRetweet': didRetweet,
         'comments_count': Post.objects(parent=post_id).count(),
-        'children': comments
+        'children': comments,
+        'isAuthor': isAuthor
     }
 
 
