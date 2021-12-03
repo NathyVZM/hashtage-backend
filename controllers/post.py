@@ -104,19 +104,38 @@ def get_all_posts():
             else:
                 images = []
             
+            isAuthor = False
+            if get_jwt_identity() == str(post.author.pk):
+                isAuthor = True
+            
             didRetweet = False
             for retweet in Retweet.objects(post_id=str(post.pk)):
                 if str(retweet.user_id.pk) == get_jwt_identity():
                     didRetweet = True
+                # posts.append({
+                #     'id': str(retweet.pk),
+                #     'user_id': retweet.user_id,
+                #     'post_id': retweet.post_id
+                # })
                 posts.append({
                     'id': str(retweet.pk),
-                    'user_id': retweet.user_id,
-                    'post_id': retweet.post_id
+                    'user_id': {
+                        'id': str(retweet.user_id.pk),
+                        'full_name': retweet.user_id.full_name,
+                        'username': retweet.user_id.username
+                    },
+                    'post_id': {
+                        'id': str(retweet.post_id.pk),
+                        'author': retweet.post_id.author,
+                        'text': retweet.post_id.text,
+                        'date': retweet.post_id.date,
+                        'images': images,
+                        'retweets_count': Retweet.objects(post_id=str(retweet.post_id.pk)).count(),
+                        'didRetweet': didRetweet,
+                        'comments_count': Post.objects(parent=str(retweet.post_id.pk)).count(),
+                        'isAuthor': isAuthor
+                    }
                 })
-            
-            isAuthor = False
-            if get_jwt_identity() == str(post.author.pk):
-                isAuthor = True
             
             posts.append({
                 'id': str(post.pk),
@@ -129,7 +148,7 @@ def get_all_posts():
                 'comments_count': Post.objects(parent=str(post.pk)).count(),
                 'isAuthor': isAuthor
             })
-            
+
         return { 'get': True, 'posts': posts }, 200
     except:
         return { 'get': False, 'message': 'No posts' }, 409
