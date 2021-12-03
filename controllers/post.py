@@ -42,6 +42,16 @@ def create_post():
     }, 201
 
 
+# FUNCTION deleteChildrenImages
+def deleteChildrenImages(comment_parent):
+    for comment in Post.objects(parent=comment_parent):
+        if comment.img_path is not None:
+            api.delete_resources_by_prefix(comment.img_path)
+            api.delete_folder(comment.img_path)
+        
+        deleteChildrenImages(str(comment.pk))
+
+
 # delete_post()
 @post_bp.route('/post/<string:post_id>', methods=['DELETE'])
 @jwt_required()
@@ -49,9 +59,22 @@ def delete_post(post_id):
     post = Post.objects(id=post_id).first()
 
     if post is not None:
+        if post.img_path is not None:
+            api.delete_resources_by_prefix(post.img_path)
+            api.delete_folder(post.img_path)
+        
+        comments = Post.objects(parent=str(post.pk))
+
+        for comment in Post.objects(parent=str(post.pk)):
+            if comment.img_path is not None:
+                print(comment.img_path)
+                api.delete_resources_by_prefix(comment.img_path)
+                api.delete_folder(comment.img_path)
+                
+            deleteChildrenImages(str(comment.pk))
+        
         post.delete()
-        api.delete_resources_by_prefix(post.img_path)
-        api.delete_folder(post.img_path)
+
         return {
             'deleted': True,
             'post': {
@@ -59,7 +82,8 @@ def delete_post(post_id):
                 'author': post.author,
                 'text': post.text,
                 'date': post.date,
-                'img_path': post.img_path
+                'img_path': post.img_path,
+                'comments': comments
             }
         }, 200
     else:
@@ -72,6 +96,7 @@ def delete_post(post_id):
 def get_all_posts():
     try:
         posts = []
+        retweets = []
 
         for post in Post.objects(parent=None):
             if post.img_path is not None:
@@ -81,7 +106,6 @@ def get_all_posts():
                 images = []
             
             didRetweet = False
-            retweets = []
             for retweet in Retweet.objects(post_id=str(post.pk)):
                 if str(retweet.user_id.pk) == get_jwt_identity():
                     didRetweet = True
@@ -91,7 +115,7 @@ def get_all_posts():
                     'post_id': retweet.post_id
                 })
             
-            isAuthor = False,
+            isAuthor = False
             if get_jwt_identity() == str(post.author.pk):
                 isAuthor = True
             
@@ -101,12 +125,13 @@ def get_all_posts():
                 'text': post.text,
                 'date': post.date,
                 'images': images,
-                'retweets': retweets,
                 'retweets_count': Retweet.objects(post_id=str(post.pk)).count(),
                 'didRetweet': didRetweet,
                 'comments_count': Post.objects(parent=str(post.pk)).count(),
                 'isAuthor': isAuthor
             })
+        
+        posts.append(retweets)
 
         return { 'get': True, 'posts': posts }, 200
     except:
@@ -266,10 +291,10 @@ def retweet(post_id):
 
 
 # unretweet()
-@post_bp.route('/post/retweet/<string:retweet_id>', methods=['DELETE'])
+@post_bp.route('/post/retweet/<string:post_id>', methods=['DELETE'])
 @jwt_required()
-def unretweet(retweet_id):
-    retweet = Retweet.objects(id=retweet_id).first()
+def unretweet(post_id):
+    retweet = Retweet.objects(user_id=get_jwt_identity(), post_id=post_id).first()
 
     if retweet is not None:
         retweet.delete()
