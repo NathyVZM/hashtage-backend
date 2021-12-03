@@ -96,7 +96,6 @@ def delete_post(post_id):
 def get_all_posts():
     try:
         posts = []
-        retweets = []
 
         for post in Post.objects(parent=None):
             if post.img_path is not None:
@@ -109,7 +108,7 @@ def get_all_posts():
             for retweet in Retweet.objects(post_id=str(post.pk)):
                 if str(retweet.user_id.pk) == get_jwt_identity():
                     didRetweet = True
-                retweets.append({
+                posts.append({
                     'id': str(retweet.pk),
                     'user_id': retweet.user_id,
                     'post_id': retweet.post_id
@@ -130,9 +129,7 @@ def get_all_posts():
                 'comments_count': Post.objects(parent=str(post.pk)).count(),
                 'isAuthor': isAuthor
             })
-        
-        posts.append(retweets)
-
+            
         return { 'get': True, 'posts': posts }, 200
     except:
         return { 'get': False, 'message': 'No posts' }, 409
