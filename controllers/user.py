@@ -6,6 +6,7 @@ from models.user import User
 from models.post import Post
 from models.retweet import Retweet
 from cloudinary import api
+import pprint
 
 user_bp = Blueprint('user_bp', __name__)
 
@@ -99,7 +100,8 @@ def get_user_posts(user_id):
             'text': post.text,
             'date': post.date,
             'images': images,
-            'retweets_count': Retweet.objects(post_id=str(post.pk)).count()
+            'retweets_count': Retweet.objects(post_id=str(post.pk)).count(),
+            'parent': post.parent
         })
 
 
