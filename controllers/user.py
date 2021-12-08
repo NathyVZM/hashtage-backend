@@ -231,3 +231,13 @@ def get_user_posts(user_id):
 @jwt_required()
 def logout():
     return { 'logout': True, 'user_id': get_jwt_identity() }, 200
+
+
+# follow_user()
+@user_bp.route('/follow/<string:user_id>', methods=['POST'])
+@jwt_required()
+def follow_user(user_id):
+    return {
+        'user_following': get_jwt_identity(),
+        'user_followed': user_id
+    }, 201

@@ -6,6 +6,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from models.user import User
 from models.post import Post
 from models.retweet import Retweet
+from models.like import Like
 from mongoengine.queryset.visitor import Q
 from cloudinary import uploader, api
 import time
@@ -397,3 +398,41 @@ def search(text):
         'posts': posts,
         'users': users
     }, 200
+
+
+# like()
+@post_bp.route('/post/like/<string:post_id>', methods=['POST'])
+@jwt_required()
+def like(post_id):
+    like = Like(user_id=get_jwt_identity(), post_id=post_id)
+    like.save()
+
+    return {
+        'created': True,
+        'like': {
+            'id': str(like.id),
+            'user_id': like.user_id,
+            'post_id': like.post_id
+        }
+    }, 201
+
+
+# unlike()
+@post_bp.route('/post/like/<string:post_id>', methods=['DELETE'])
+@jwt_required()
+def unlike(post_id):
+    like = Like.objects(user_id=get_jwt_identity(), post_id=post_id).first()
+
+    if like is not None:
+        like.delete()
+
+        return {
+            'deleted': True,
+            'like': {
+                'id': str(like.id),
+                'user_id': like.user_id,
+                'post_id': like.post_id
+            }
+        }, 200
+    else:
+        return { 'deleted': False, 'message': 'Like not found' }, 409
