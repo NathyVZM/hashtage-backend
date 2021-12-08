@@ -118,7 +118,7 @@ def get_user_posts(user_id):
                 'from': 'retweet',
                 'let': { 'user_id': '$_id'},
                 'pipeline': [
-                    { '$match': { '$expr': { '$eq': ['$user_id', '$$user_id']} } },
+                    { '$match': { '$expr': { '$eq': ['$user_id', '$$user_id'] } } },
                     {
                         '$lookup': {
                             'from': 'post',
@@ -150,8 +150,6 @@ def get_user_posts(user_id):
             }
         }
     ])
-
-    pp = pprint.PrettyPrinter(sort_dicts=False)
 
     user_dict = user_data.next()
 
@@ -221,15 +219,13 @@ def get_user_posts(user_id):
 
         retweet['post_id']['images'] = images
 
-    pp.pprint({ 'user': user, 'posts': posts, 'retweets': retweets })
-
     return {
         'get': True,
         'user': user,
         'posts': posts,
         'retweets': retweets
     }, 200
-    
+
 
 # logout()
 @user_bp.route('/logout', methods=['POST'])
