@@ -105,14 +105,13 @@ def get_all_posts():
             else:
                 images = []
             
-            isAuthor = False
-            if get_jwt_identity() == str(post.author.pk):
-                isAuthor = True
+            isAuthor = True if str(post.author.id) == get_jwt_identity() else False
             
             didRetweet = False
             for retweet in Retweet.objects(post_id=str(post.pk)).order_by('-id'):
                 if str(retweet.user_id.pk) == get_jwt_identity():
                     didRetweet = True
+
                 posts.append({
                     'id': str(retweet.pk),
                     'user_id': {
@@ -197,9 +196,7 @@ def getChildren(comment_parent):
             if str(retweet.user_id.pk) == get_jwt_identity():
                 didRetweet = True
         
-        isAuthor = False
-        if get_jwt_identity() == str(comment.author.pk):
-            isAuthor = True
+        isAuthor = True if str(comment.author.id) == get_jwt_identity() else False
         
         children.append({
             'id': str(comment.pk),
@@ -361,7 +358,7 @@ def unretweet(post_id):
 def search(text):
     posts = []
 
-    for post in Post.objects(text__icontains=text):
+    for post in Post.objects(text__icontains=text).order_by('-id'):
         if post.img_path is not None:
             images_resources = api.resources(type='upload', prefix=post.img_path)['resources']
             images = [image['secure_url'] for image in images_resources]
