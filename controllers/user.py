@@ -237,7 +237,37 @@ def logout():
 @user_bp.route('/follow/<string:user_id>', methods=['POST'])
 @jwt_required()
 def follow_user(user_id):
-    return {
-        'user_following': get_jwt_identity(),
-        'user_followed': user_id
-    }, 201
+    user_following = User.objects(id=get_jwt_identity()).first()
+    user_followed = User.objects(id=user_id).first()
+
+    if user_following is not None and user_followed is not None:
+        User.objects(id=get_jwt_identity()).update_one(push__following=user_followed)
+        User.objects(id=user_id).update_one(push__followers=user_following)
+
+        return {
+            'follow': True,
+            'user_following': str(user_following.id),
+            'user_followed': str(user_followed.id)
+        }, 201
+    else:
+        return { 'follow': False, 'message': 'Users not found' }, 409
+
+
+# unfollow_user()
+@user_bp.route('/follow/<string:user_id>', methods=['DELETE'])
+@jwt_required()
+def unfollow_user(user_id):
+    user_unfollowing = User.objects(id=get_jwt_identity()).first()
+    user_unfollowed = User.objects(id=user_id).first()
+
+    if user_unfollowing is not None and user_unfollowed is not None:
+        User.objects(id=get_jwt_identity()).update_one(pull__following=user_unfollowed)
+        User.objects(id=user_id).update_one(pull__followers=user_unfollowing)
+
+        return {
+            'unfollow': True,
+            'user_unfollowing': str(user_unfollowing.id),
+            'user_unfollowed': str(user_unfollowed.id)
+        }, 200
+    else:
+        return { 'unfollow': False, 'message': 'Users not found' }, 409
