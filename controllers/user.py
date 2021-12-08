@@ -1,13 +1,11 @@
 # user.py
 
-import datetime
 from flask import Blueprint, request
 from flask_jwt_extended import create_access_token, create_refresh_token ,get_jwt_identity, jwt_required
 from models.user import User
 from models.post import Post
 from models.retweet import Retweet
 from cloudinary import api
-import pprint
 
 user_bp = Blueprint('user_bp', __name__)
 
@@ -81,7 +79,7 @@ def get_user_posts(user_id):
                 'let': { 'author': '$_id' },
                 'pipeline': [
                     { '$match': { '$expr': { '$eq': ['$author', '$$author'] } } },
-                    { '$sort': { 'date': -1 } },
+                    { '$sort': { '_id': -1 } },
                     {
                         '$lookup': {
                             'from': 'post',
@@ -119,6 +117,7 @@ def get_user_posts(user_id):
                 'let': { 'user_id': '$_id'},
                 'pipeline': [
                     { '$match': { '$expr': { '$eq': ['$user_id', '$$user_id'] } } },
+                    { '$sort': { '_id': -1 } },
                     {
                         '$lookup': {
                             'from': 'post',

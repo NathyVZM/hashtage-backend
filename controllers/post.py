@@ -98,7 +98,7 @@ def get_all_posts():
     try:
         posts = []
 
-        for post in Post.objects(parent=None):
+        for post in Post.objects(parent=None).order_by('-id'):
             if post.img_path is not None:
                 images_resources = api.resources(type='upload', prefix=post.img_path)['resources']
                 images = [image['secure_url'] for image in images_resources]
@@ -110,7 +110,7 @@ def get_all_posts():
                 isAuthor = True
             
             didRetweet = False
-            for retweet in Retweet.objects(post_id=str(post.pk)):
+            for retweet in Retweet.objects(post_id=str(post.pk)).order_by('-id'):
                 if str(retweet.user_id.pk) == get_jwt_identity():
                     didRetweet = True
                 posts.append({
