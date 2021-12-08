@@ -112,11 +112,6 @@ def get_all_posts():
             for retweet in Retweet.objects(post_id=str(post.pk)):
                 if str(retweet.user_id.pk) == get_jwt_identity():
                     didRetweet = True
-                # posts.append({
-                #     'id': str(retweet.pk),
-                #     'user_id': retweet.user_id,
-                #     'post_id': retweet.post_id
-                # })
                 posts.append({
                     'id': str(retweet.pk),
                     'user_id': {
