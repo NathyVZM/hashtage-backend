@@ -2,6 +2,7 @@
 
 from app import db
 from flask_bcrypt import Bcrypt
+import mongoengine
 
 bcrypt = Bcrypt()
 
@@ -12,8 +13,8 @@ class User(db.Document):
     address = db.StringField()
     birthday = db.DateTimeField()
     bio = db.StringField()
-    followers = db.ListField(db.ReferenceField('self'))
-    following = db.ListField(db.ReferenceField('self'))
+    followers = db.ListField(db.ReferenceField('self', reverse_delete_rule=mongoengine.CASCADE))
+    following = db.ListField(db.ReferenceField('self', reverse_delete_rule=mongoengine.CASCADE))
 
     # createPassword()
     def createPassword(password):
