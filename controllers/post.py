@@ -26,6 +26,7 @@ def create_post():
 
     if 'images' in request.files:
         post.update(img_path=f'hashtage/{str(post.author.pk)}/{str(post.pk)}')
+        post.reload()
 
         for index, image in enumerate(request.files.getlist('images'), start=1):
             print(index, image.filename)

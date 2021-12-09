@@ -1,5 +1,6 @@
 # user.py
 
+from datetime import datetime
 from flask import Blueprint, request
 from flask_jwt_extended import create_access_token, create_refresh_token ,get_jwt_identity, jwt_required
 from models.user import User
@@ -271,3 +272,41 @@ def unfollow_user(user_id):
         }, 200
     else:
         return { 'unfollow': False, 'message': 'Users not found' }, 409
+
+
+# edit_user
+@user_bp.route('/user/<string:user_id>', methods=['PUT'])
+@jwt_required()
+def edit_user(user_id):
+    data = request.json
+    
+    full_name = data['full_name']
+    username = data['username']
+    password = data['password']
+    address = data['address']
+    birthday = data['birthday']
+    bio = data['bio']
+
+    birthday_obj = datetime.strptime(birthday, '%d/%m/%Y')
+    print(birthday_obj)
+
+    user = User.objects(id=user_id).first()
+
+    if user is not None:
+        user.update(full_name=full_name, username=username, password=User.createPassword(password), address=address, birthday=birthday_obj, bio=bio)
+        user.reload()
+
+        return {
+            'edit': True,
+            'user': {
+                'id': str(user.id),
+                'full_name': user.full_name,
+                'username': user.username,
+                'password': user.password,
+                'address': user.address,
+                'birthday': user.birthday,
+                'bio': user.bio
+            }
+        }, 200
+    else:
+        return { 'edit': False, 'message': 'User not found' }, 409
