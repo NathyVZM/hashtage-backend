@@ -1,12 +1,14 @@
 # user.py
 
 from datetime import datetime
+from urllib.parse import uses_relative
 from flask import Blueprint, request
 from flask_jwt_extended import create_access_token, create_refresh_token ,get_jwt_identity, jwt_required
 from models.user import User
 from models.post import Post
 from models.retweet import Retweet
 from cloudinary import api
+import pprint
 
 user_bp = Blueprint('user_bp', __name__)
 
@@ -90,12 +92,24 @@ def get_user_posts(user_id):
                                 {
                                     '$lookup': {
                                         'from': 'user',
-                                        'localField': 'author',
-                                        'foreignField': '_id',
+                                        'let': { 'author': '$author' },
+                                        'pipeline': [
+                                            { '$match': { '$expr': { '$eq': ['$$author', '$_id'] } } },
+                                            {
+                                                '$project': {
+                                                    '_id': 1,
+                                                    'full_name': 1,
+                                                    'username': 1,
+                                                    'address': 1,
+                                                    'birthday': 1,
+                                                    'bio': 1
+                                                }
+                                            }
+                                        ],
                                         'as': 'author'
                                     }
                                 },
-                                { '$unwind': '$author' }
+                                { '$unwind': '$author' },
                             ],
                             'as': 'parent'
                         }
@@ -128,8 +142,20 @@ def get_user_posts(user_id):
                                 {
                                     '$lookup': {
                                         'from': 'user',
-                                        'localField': 'author',
-                                        'foreignField': '_id',
+                                        'let': { 'author': '$author' },
+                                        'pipeline': [
+                                            { '$match': { '$expr': { '$eq': ['$$author', '$_id'] } } },
+                                            {
+                                                '$project': {
+                                                    '_id': 1,
+                                                    'full_name': 1,
+                                                    'username': 1,
+                                                    'address': 1,
+                                                    'birthday': 1,
+                                                    'bio': 1
+                                                }
+                                            }
+                                        ],
                                         'as': 'author'
                                     }
                                 },
@@ -161,9 +187,16 @@ def get_user_posts(user_id):
         'address': user_dict['address'] if 'address' in user_dict else None,
         'birthday': user_dict['birthday'] if 'birthday' in user_dict else None,
         'bio': user_dict['bio'] if 'bio' in user_dict else None,
-        'followers': user_dict['followers'],
-        'following': user_dict['following']
+        'followers': len(user_dict['followers']),
+        'following': len(user_dict['following'])
     }
+
+    isFollower = False
+    for follower in user_dict['followers']:
+        if str(follower) == get_jwt_identity():
+            isFollower = True
+
+    user['isFollower'] = isFollower
 
     # POSTS
     posts = [{('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in post.items()} for post in user_dict['posts']]
@@ -196,9 +229,6 @@ def get_user_posts(user_id):
     retweets = [{('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in retweet.items()} for retweet in user_dict['retweets']]
 
     for retweet in retweets:
-        retweet['comments_count'] = Post.objects(parent=retweet['id']).count()
-        retweet['retweets_count'] = Retweet.objects(post_id=retweet['id']).count()
-
         retweet['post_id'] = {('id' if key == '_id' else key):(str(value) if key == '_id' or key == 'parent' else value) for key, value in retweet['post_id'].items()}
 
         retweet['post_id']['author'] = {('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in retweet['post_id']['author'].items()}
@@ -218,6 +248,9 @@ def get_user_posts(user_id):
             images = []
 
         retweet['post_id']['images'] = images
+    
+    pp = pprint.PrettyPrinter(sort_dicts=False)
+    pp.pprint({ 'user': user, 'posts': posts, 'retweets': retweets })
 
     return {
         'get': True,

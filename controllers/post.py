@@ -134,6 +134,11 @@ def get_all_posts():
                     }
                 })
             
+            didLike = False
+            for like in Like.objects(post_id=str(post.id)).order_by('-id'):
+                if str(like.user_id.id) == get_jwt_identity():
+                    didLike = True
+            
             posts.append({
                 'id': str(post.pk),
                 'author': post.author,
@@ -142,6 +147,7 @@ def get_all_posts():
                 'images': images,
                 'retweets_count': Retweet.objects(post_id=str(post.pk)).count(),
                 'didRetweet': didRetweet,
+                'didLike': didLike,
                 'comments_count': Post.objects(parent=str(post.pk)).count(),
                 'isAuthor': isAuthor
             })
@@ -372,6 +378,11 @@ def search(text):
             if str(retweet.user_id.pk) == get_jwt_identity():
                 didRetweet = True
         
+        didLike = False
+        for like in Like.objects(post_id=str(post.id)):
+            if str(like.user_id.id) == get_jwt_identity():
+                didLike = True
+        
         posts.append({
             'id': str(post.pk),
             'author': post.author,
@@ -381,6 +392,7 @@ def search(text):
             'parent': post.parent,
             'retweets_count': Retweet.objects(post_id=str(post.pk)).count(),
             'didRetweet': didRetweet,
+            'didLike': didLike,
             'comments_count': Post.objects(parent=str(post.pk)).count()
         })
 
