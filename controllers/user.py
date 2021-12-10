@@ -20,20 +20,19 @@ def register():
     password = data['password']
 
     user = User(full_name=full_name, username=username, password=User.createPassword(password))
-    duplicated = User.objects(username__iexact=username)
 
-    if not duplicated:
+    try:
         user.save()
         return {
             'created': True,
             'user': {
-                'id': str(user.id),
+                'id': str(user.pk),
                 'full_name': user.full_name,
                 'username': user.username,
                 'password': user.password
             }
         }, 201
-    else:
+    except:
         return { 'created': False, 'message': 'Username already exists' }, 409
 
 
