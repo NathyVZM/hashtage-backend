@@ -241,8 +241,17 @@ def get_post_info(post_id):
                     {
                         '$lookup': {
                             'from': 'user',
-                            'localField': 'author',
-                            'foreignField': '_id',
+                            'let': { 'author': '$author' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$author', '$_id'] } } },
+                                {
+                                    '$project': {
+                                        '_id': 1,
+                                        'full_name': 1,
+                                        'username': 1
+                                    }
+                                }
+                            ],
                             'as': 'author'
                         }
                     },
@@ -255,8 +264,17 @@ def get_post_info(post_id):
         {
             '$lookup': {
                 'from': 'user',
-                'localField': 'author',
-                'foreignField': '_id',
+                'let': { 'author': '$author' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$author', '$_id'] } } },
+                    {
+                        '$project': {
+                            '_id': 1,
+                            'full_name': 1,
+                            'username': 1
+                        }
+                    }
+                ],
                 'as': 'author'
             }
         },
@@ -315,6 +333,9 @@ def get_post_info(post_id):
         child['retweets_count'] = Retweet.objects(post_id=child['id']).count()
         child['comments_count'] = Post.objects(parent=child['id']).count()
         child['children'] = getChildren(child['id'])
+    
+    # pp = pprint.PrettyPrinter(sort_dicts=False)
+    # pp.pprint(post)
 
     return {
         'get': True,
