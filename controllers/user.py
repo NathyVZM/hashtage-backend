@@ -7,6 +7,7 @@ from models.user import User
 from models.post import Post
 from models.retweet import Retweet
 from cloudinary import api
+import pprint
 
 user_bp = Blueprint('user_bp', __name__)
 
