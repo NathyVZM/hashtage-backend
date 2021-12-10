@@ -20,19 +20,20 @@ def register():
     password = data['password']
 
     user = User(full_name=full_name, username=username, password=User.createPassword(password))
+    duplicated = User.objects(username__iexact=username)
 
-    try:
+    if not duplicated:
         user.save()
         return {
             'created': True,
             'user': {
-                'id': str(user.pk),
+                'id': str(user.id),
                 'full_name': user.full_name,
                 'username': user.username,
                 'password': user.password
             }
         }, 201
-    except:
+    else:
         return { 'created': False, 'message': 'Username already exists' }, 409
 
 
@@ -73,189 +74,49 @@ def refresh_token():
 @user_bp.route('/user/<string:user_id>', methods=['GET'])
 @jwt_required()
 def get_user_posts(user_id):
-    user_data = User.objects(id=user_id).aggregate([
-        {
-            '$lookup': {
-                'from': 'post',
-                'let': { 'author': '$_id' },
-                'pipeline': [
-                    { '$match': { '$expr': { '$eq': ['$author', '$$author'] } } },
-                    { '$sort': { '_id': -1 } },
-                    {
-                        '$lookup': {
-                            'from': 'post',
-                            'let': { 'parent': '$parent' },
-                            'pipeline': [
-                                { '$match': { '$expr': { '$eq': ['$$parent', '$_id'] } } },
-                                {
-                                    '$lookup': {
-                                        'from': 'user',
-                                        'let': { 'author': '$author' },
-                                        'pipeline': [
-                                            { '$match': { '$expr': { '$eq': ['$$author', '$_id'] } } },
-                                            {
-                                                '$project': {
-                                                    '_id': 1,
-                                                    'full_name': 1,
-                                                    'username': 1,
-                                                    'address': 1,
-                                                    'birthday': 1,
-                                                    'bio': 1
-                                                }
-                                            }
-                                        ],
-                                        'as': 'author'
-                                    }
-                                },
-                                { '$unwind': '$author' },
-                            ],
-                            'as': 'parent'
-                        }
-                    },
-                    { '$unwind': { 'path': '$parent', 'preserveNullAndEmptyArrays': True } },
-                    { '$project': {
-                        '_id': 1,
-                        'text': 1,
-                        'date': 1,
-                        'img_path': 1,
-                        'parent': 1
-                    } }
-                ],
-                'as': 'posts'
-            }
-        },
-        {
-            '$lookup': {
-                'from': 'retweet',
-                'let': { 'user_id': '$_id'},
-                'pipeline': [
-                    { '$match': { '$expr': { '$eq': ['$user_id', '$$user_id'] } } },
-                    { '$sort': { '_id': -1 } },
-                    {
-                        '$lookup': {
-                            'from': 'post',
-                            'let': { 'post_id': '$post_id' },
-                            'pipeline': [
-                                { '$match': { '$expr': { '$eq': ['$_id', '$$post_id']} } },
-                                {
-                                    '$lookup': {
-                                        'from': 'user',
-                                        'let': { 'author': '$author' },
-                                        'pipeline': [
-                                            { '$match': { '$expr': { '$eq': ['$$author', '$_id'] } } },
-                                            {
-                                                '$project': {
-                                                    '_id': 1,
-                                                    'full_name': 1,
-                                                    'username': 1,
-                                                    'address': 1,
-                                                    'birthday': 1,
-                                                    'bio': 1
-                                                }
-                                            }
-                                        ],
-                                        'as': 'author'
-                                    }
-                                },
-                                { '$unwind': '$author' }
-                            ],
-                            'as': 'post_id'
-                        }
-                    },
-                    { '$unwind': '$post_id' },
-                    {
-                        '$project': {
-                            '_id': 1,
-                            'post_id': 1,
-                        }
-                    }
-                ],
-                'as': 'retweets'
-            }
-        }
-    ])
+    user_obj = User.objects(id=user_id).first()
 
-    user_dict = user_data.next()
-
-    # USER
     user = {
-        'id': str(user_dict['_id']),
-        'full_name': user_dict['full_name'],
-        'username': user_dict['username'],
-        'address': user_dict['address'] if 'address' in user_dict else None,
-        'birthday': user_dict['birthday'] if 'birthday' in user_dict else None,
-        'bio': user_dict['bio'] if 'bio' in user_dict else None,
-        'followers': len(user_dict['followers']),
-        'following': len(user_dict['following'])
+        'id': str(user_obj.pk),
+        'full_name': user_obj.full_name,
+        'username': user_obj.username,
+        'address': user_obj.address,
+        'birthday': user_obj.birthday,
+        'bio': user_obj.bio,
+        'followers': user_obj.followers,
+        'following': user_obj.following
     }
 
-    isFollower = False
-    for follower in user_dict['followers']:
-        if str(follower) == get_jwt_identity():
-            isFollower = True
+    posts = []
 
-    user['isFollower'] = isFollower
-
-    # POSTS
-    posts = [{('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in post.items()} for post in user_dict['posts']]
-
-    for post in posts:
-        if 'img_path' in post:
-            images_resources = api.resources(type='upload', prefix=post['img_path'])['resources']
+    for post in Post.objects(author=user_id):
+        if post.img_path is not None:
+            images_resources = api.resources(type='upload', prefix=post.img_path)['resources']
             images = [image['secure_url'] for image in images_resources]
         else:
             images = []
         
-        post['images'] = images
-        post['comments_count'] = Post.objects(parent=post['id']).count()
-        post['retweets_count'] = Retweet.objects(post_id=post['id']).count()
+        posts.append({
+            'id': str(post.pk),
+            'text': post.text,
+            'date': post.date,
+            'images': images,
+            'retweets_count': Retweet.objects(post_id=str(post.pk)).count()
+        })
 
-        didRetweet = False
-        for retweet in Retweet.objects(post_id=post['id']):
-            if str(retweet.user_id.id) == get_jwt_identity():
-                didRetweet = True
-        
-        post['didRetweet'] = didRetweet
 
-        if 'parent' in post:
-            post['parent'] = {('id' if key == '_id' else key):(str(value) if key == '_id' or key == 'parent' else value) for key, value in post['parent'].items()}
-
-            post['parent']['author'] = {('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in post['parent']['author'].items()}
-
-    
-    # RETWEETS
-    retweets = [{('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in retweet.items()} for retweet in user_dict['retweets']]
-
-    for retweet in retweets:
-        retweet['post_id'] = {('id' if key == '_id' else key):(str(value) if key == '_id' or key == 'parent' else value) for key, value in retweet['post_id'].items()}
-
-        retweet['post_id']['author'] = {('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in retweet['post_id']['author'].items()}
-
-        didRetweet = False
-        for r in Retweet.objects(post_id=retweet['post_id']['id']):
-            if str(r.user_id.id) == get_jwt_identity():
-                didRetweet = True
-        
-        retweet['didRetweet'] = didRetweet
-        retweet['isAuthor'] = True if retweet['post_id']['author']['id'] == get_jwt_identity() else False
-
-        if 'img_path' in retweet['post_id']:
-            images_resources = api.resources(type='upload', prefix=retweet['post_id']['img_path'])['resources']
-            images = [image['secure_url'] for image in images_resources]
-        else:
-            images = []
-
-        retweet['post_id']['images'] = images
-    
-    pp = pprint.PrettyPrinter(sort_dicts=False)
-    pp.pprint({ 'user': user, 'posts': posts, 'retweets': retweets })
+    retweets = [{
+        'id': str(retweet.pk),
+        'post_id': retweet.post_id
+    } for retweet in Retweet.objects(user_id=user_id)]
 
     return {
-        'get': True,
-        'user': user,
-        'posts': posts,
-        'retweets': retweets
-    }, 200
+            'get': True,
+            'user': user,
+            'posts': posts,
+            'retweets': retweets
+        }, 200
+
 
 
 # logout()
