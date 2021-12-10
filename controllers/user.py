@@ -83,8 +83,8 @@ def get_user_posts(user_id):
         'address': user_obj.address,
         'birthday': user_obj.birthday,
         'bio': user_obj.bio,
-        'followers': user_obj.followers,
-        'following': user_obj.following
+        'followers': len(user_obj.followers),
+        'following': len(user_obj.following)
     }
 
     posts = []

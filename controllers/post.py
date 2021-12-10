@@ -375,8 +375,8 @@ def search(text):
         'address': user.address,
         'birthday': user.birthday,
         'bio': user.bio,
-        'followers': user.followers,
-        'following': user.following
+        'followers': len(user.followers),
+        'following': len(user.following)
     } for user in User.objects(Q(username__icontains=text) | Q(full_name__icontains=text))]
 
     return {
