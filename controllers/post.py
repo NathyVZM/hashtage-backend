@@ -257,10 +257,8 @@ def get_post_info(post_id):
         for retweet in Retweet.objects(post_id=str(comment.pk)):
             if str(retweet.user_id.pk) == get_jwt_identity():
                 didRetweetComment = True
-        
-        isAuthorComment = False
-        if get_jwt_identity() == str(comment.author.pk):
-            isAuthorComment = True
+
+        isAuthorComment = True if get_jwt_identity() == str(comment.author.id) else False
 
         comments.append({
             'id': str(comment.pk),
@@ -275,10 +273,8 @@ def get_post_info(post_id):
             'children': getChildren(str(comment.pk)),
             'isAuthor': isAuthorComment
         })
-    
-    isAuthor = False
-    if get_jwt_identity() == str(post.author.id):
-        isAuthor = True
+
+    isAuthor = True if get_jwt_identity() == str(post.author.id) else False
         
     return {
         'id': str(post.pk),

@@ -6,6 +6,7 @@ from flask_jwt_extended import create_access_token, create_refresh_token ,get_jw
 from models.user import User
 from models.post import Post
 from models.retweet import Retweet
+from models.like import Like
 from cloudinary import api
 import pprint
 
@@ -76,6 +77,11 @@ def refresh_token():
 def get_user_posts(user_id):
     user_obj = User.objects(id=user_id).first()
 
+    isFollower = False
+    for follower in user_obj.followers:
+        if str(follower.id) == get_jwt_identity():
+            isFollower = True
+
     user = {
         'id': str(user_obj.pk),
         'full_name': user_obj.full_name,
@@ -84,24 +90,31 @@ def get_user_posts(user_id):
         'birthday': user_obj.birthday,
         'bio': user_obj.bio,
         'followers': len(user_obj.followers),
-        'following': len(user_obj.following)
+        'following': len(user_obj.following),
+        'isFollower': isFollower
     }
 
     posts = []
 
-    for post in Post.objects(author=user_id):
+    for post in Post.objects(author=user_id).order_by('-id'):
         if post.img_path is not None:
             images_resources = api.resources(type='upload', prefix=post.img_path)['resources']
             images = [image['secure_url'] for image in images_resources]
         else:
             images = []
         
+        didLike = False
+        for like in Like.objects(post_id=str(post.id)):
+            if str(like.user_id.id) == get_jwt_identity():
+                didLike = True
+        
         posts.append({
             'id': str(post.pk),
             'text': post.text,
             'date': post.date,
             'images': images,
-            'retweets_count': Retweet.objects(post_id=str(post.pk)).count()
+            'retweets_count': Retweet.objects(post_id=str(post.pk)).count(),
+            'didLike': didLike
         })
 
 
@@ -167,9 +180,9 @@ def unfollow_user(user_id):
 
 
 # edit_user
-@user_bp.route('/user/<string:user_id>', methods=['PUT'])
+@user_bp.route('/user', methods=['PUT'])
 @jwt_required()
-def edit_user(user_id):
+def edit_user():
     data = request.json
     
     full_name = data['full_name']
@@ -182,7 +195,7 @@ def edit_user(user_id):
     birthday_obj = datetime.strptime(birthday, '%d/%m/%Y')
     print(birthday_obj)
 
-    user = User.objects(id=user_id).first()
+    user = User.objects(id=get_jwt_identity()).first()
 
     if user is not None:
         user.update(full_name=full_name, username=username, password=User.createPassword(password), address=address, birthday=birthday_obj, bio=bio)
