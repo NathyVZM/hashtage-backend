@@ -9,6 +9,7 @@ from models.retweet import Retweet
 from models.like import Like
 from cloudinary import api
 import pprint
+from bson.objectid import ObjectId
 
 user_bp = Blueprint('user_bp', __name__)
 
@@ -225,15 +226,6 @@ def get_user_posts(user_id):
                 
             post['parent']['images'] = parent_images
 
-        if 'retweets_count' not in post:
-            post['retweets_count'] = 0
-            
-        if 'comments_count' not in post:
-            post['comments_count'] = 0
-
-        if 'likes_count' not in post:
-            post['likes_count'] = 0
-
         # adding images to post
         if 'img_path' in post:
             images_resources = api.resources(type='upload', prefix=post['img_path'])['resources']
@@ -243,7 +235,32 @@ def get_user_posts(user_id):
         
         post['images'] = images
 
-    # pp.pprint(posts)
+        if 'retweets_count' not in post:
+            post['retweets_count'] = 0
+            
+        if 'comments_count' not in post:
+            post['comments_count'] = 0
+
+        if 'likes_count' not in post:
+            post['likes_count'] = 0
+        
+        # didRetweet
+        didRetweet = False
+        for retweet in Retweet.objects(post_id=post['id']):
+            if str(retweet.user_id.id) == get_jwt_identity():
+                didRetweet = True
+        
+        post['didRetweet'] = didRetweet
+
+        # didLike
+        didLike = False
+        for like in Like.objects(post_id=post['id']):
+            if str(like.user_id.id) == get_jwt_identity():
+                didLike = True
+        
+        post['didLike'] = didLike
+
+
 
     return {
         'user': user,
