@@ -110,7 +110,11 @@ def get_user_posts(user_id):
                                 { '$unwind': '$author' },
                                 {
                                     '$project': {
-                                        'parent': 0
+                                        '_id': 1,
+                                        'author': 1,
+                                        'text': 1,
+                                        'date': 1,
+                                        'img_path': { '$ifNull': ['$img_path', None] }
                                     }
                                 }
                             ],
@@ -160,7 +164,7 @@ def get_user_posts(user_id):
                             '_id': 1,
                             'text': 1,
                             'date': 1,
-                            'img_path': 1,
+                            'img_path': { '$ifNull': ['$img_path', None] },
                             'parent': { '$ifNull': ['$parent', None] },
                             'retweets_count': '$retweets_count.count',
                             'comments_count': '$comments_count.count',
@@ -244,7 +248,7 @@ def get_user_posts(user_id):
                                         'author': 1,
                                         'text': 1,
                                         'date': 1,
-                                        'img_path': 1,
+                                        'img_path': { '$ifNull': ['$img_path', None] },
                                         'retweets_count': '$retweets_count.count',
                                         'comments_count': '$comments_count.count',
                                         'likes_count': '$likes_count.count'
@@ -312,7 +316,7 @@ def get_user_posts(user_id):
             post['parent']['author'] = {('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in post['parent']['author'].items()}
 
             # adding images to parent
-            if 'img_path' in post['parent']:
+            if post['parent']['img_path'] is not None:
                 parent_resources = api.resources(type='upload', prefix=post['parent']['img_path'])['resources']
                 parent_images = [image['secure_url'] for image in parent_resources]
             else:
@@ -321,7 +325,7 @@ def get_user_posts(user_id):
             post['parent']['images'] = parent_images
 
         # adding images to post
-        if 'img_path' in post:
+        if post['img_path'] is not None:
             images_resources = api.resources(type='upload', prefix=post['img_path'])['resources']
             images = [image['secure_url'] for image in images_resources]
         else:
@@ -355,13 +359,23 @@ def get_user_posts(user_id):
         post['didLike'] = didLike
 
 
-    # RETWEETS
+    # RETWEET
     retweets = [{('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in retweet.items()} for retweet in user_dict['retweets']]
 
     for retweet in retweets:
         retweet['post_id'] = {('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in retweet['post_id'].items()}
 
         retweet['post_id']['author'] = {('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in retweet['post_id']['author'].items()}
+
+
+        # adding images to post retweet
+        if retweet['post_id']['img_path'] is not None:
+            retweet_resources = api.resources(type='upload', prefix=retweet['post_id']['img_path'])['resources']
+            retweet_images = [image['secure_url'] for image in retweet_resources]
+        else:
+            retweet_images = []
+        
+        retweet['post_id']['images'] = retweet_images
 
         if 'retweets_count' not in retweet['post_id']:
             retweet['post_id']['retweets_count'] = 0
@@ -371,13 +385,30 @@ def get_user_posts(user_id):
         
         if 'likes_count' not in retweet['post_id']:
             retweet['post_id']['likes_count'] = 0
+        
+        # didRetweet
+        didRetweetPost = False
+        for r in Retweet.objects(post_id=retweet['post_id']['id']):
+            if str(r.user_id.id) == get_jwt_identity():
+                didRetweetPost = True
+        
+        retweet['post_id']['didRetweet'] = didRetweetPost
+
+        # didLike
+        didLikePost = False
+        for like in Like.objects(post_id=retweet['post_id']['id']):
+            if str(like.user_id.id) == get_jwt_identity():
+                didLikePost = True
+        
+        retweet['post_id']['didLike'] = didLikePost
 
     pp.pprint(retweets)
 
 
     return {
         'user': user,
-        'posts': posts
+        'posts': posts,
+        'retweets': retweets
     }, 200
 
     # user_obj = User.objects(id=user_id).first()
