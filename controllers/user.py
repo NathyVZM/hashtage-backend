@@ -402,8 +402,6 @@ def get_user_posts(user_id):
         
         retweet['post_id']['didLike'] = didLikePost
 
-    pp.pprint(retweets)
-
 
     return {
         'user': user,
