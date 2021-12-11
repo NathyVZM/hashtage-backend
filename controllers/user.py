@@ -103,6 +103,11 @@ def get_user_posts(user_id):
         else:
             images = []
         
+        didRetweet = False
+        for retweet in Retweet.objects(post_id=str(post.id)):
+            if str(retweet.user_id.id) == get_jwt_identity():
+                didRetweet = True
+        
         didLike = False
         for like in Like.objects(post_id=str(post.id)):
             if str(like.user_id.id) == get_jwt_identity():
@@ -114,6 +119,7 @@ def get_user_posts(user_id):
             'date': post.date,
             'images': images,
             'retweets_count': Retweet.objects(post_id=str(post.pk)).count(),
+            'didRetweet': didRetweet,
             'didLike': didLike
         })
 

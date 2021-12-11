@@ -113,6 +113,11 @@ def get_all_posts():
             for retweet in Retweet.objects(post_id=str(post.pk)).order_by('-id'):
                 if str(retweet.user_id.pk) == get_jwt_identity():
                     didRetweet = True
+            
+            didLike = False
+            for like in Like.objects(post_id=str(post.id)).order_by('-id'):
+                if str(like.user_id.id) == get_jwt_identity():
+                    didLike = True
 
                 posts.append({
                     'id': str(retweet.pk),
@@ -129,15 +134,11 @@ def get_all_posts():
                         'images': images,
                         'retweets_count': Retweet.objects(post_id=str(retweet.post_id.pk)).count(),
                         'didRetweet': didRetweet,
+                        'didLike': didLike,
                         'comments_count': Post.objects(parent=str(retweet.post_id.pk)).count(),
                         'isAuthor': isAuthor
                     }
                 })
-            
-            didLike = False
-            for like in Like.objects(post_id=str(post.id)).order_by('-id'):
-                if str(like.user_id.id) == get_jwt_identity():
-                    didLike = True
             
             posts.append({
                 'id': str(post.pk),
@@ -203,6 +204,11 @@ def getChildren(comment_parent):
         for retweet in Retweet.objects(post_id=str(comment.pk)):
             if str(retweet.user_id.pk) == get_jwt_identity():
                 didRetweet = True
+
+        didLike = False
+        for like in Like.objects(post_id=str(comment.id)):
+            if str(like.user_id.id) == get_jwt_identity():
+                didLike = True
         
         isAuthor = True if str(comment.author.id) == get_jwt_identity() else False
         
@@ -219,6 +225,7 @@ def getChildren(comment_parent):
             'parent': str(comment.parent.id),
             'retweets_count': Retweet.objects(post_id=str(comment.pk)).count(),
             'didRetweet': didRetweet,
+            'didLike': didLike,
             'comments_count': Post.objects(parent=str(comment.pk)).count(),
             'children': getChildren(str(comment.pk)),
             'isAuthor': isAuthor
@@ -243,6 +250,11 @@ def get_post_info(post_id):
     for retweet in Retweet.objects(post_id=str(post.pk)):
         if str(retweet.user_id.pk) == get_jwt_identity():
             didRetweet = True
+    
+    didLike = False
+    for like in Like.objects(post_id=str(post.id)):
+        if str(like.user_id.id) == get_jwt_identity():
+            didLike = True
 
     comments = []
 
@@ -257,6 +269,11 @@ def get_post_info(post_id):
         for retweet in Retweet.objects(post_id=str(comment.pk)):
             if str(retweet.user_id.pk) == get_jwt_identity():
                 didRetweetComment = True
+        
+        didLikeComment = False
+        for like in Like.objects(post_id=str(comment.id)):
+            if str(like.user_id.id) == get_jwt_identity():
+                didLikeComment = True
 
         isAuthorComment = True if get_jwt_identity() == str(comment.author.id) else False
 
@@ -269,6 +286,7 @@ def get_post_info(post_id):
             'parent': comment.parent,
             'retweets_count': Retweet.objects(post_id=str(comment.pk)).count(),
             'didRetweet': didRetweetComment,
+            'didLike': didLikeComment,
             'comments_count': Post.objects(parent=str(comment.pk)).count(),
             'children': getChildren(str(comment.pk)),
             'isAuthor': isAuthorComment
@@ -284,6 +302,7 @@ def get_post_info(post_id):
         'images': images,
         'retweets_count': Retweet.objects(post_id=post_id).count(),
         'didRetweet': didRetweet,
+        'didLike': didLike,
         'comments_count': Post.objects(parent=post_id).count(),
         'children': comments,
         'isAuthor': isAuthor
