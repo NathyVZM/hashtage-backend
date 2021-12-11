@@ -116,14 +116,54 @@ def get_user_posts(user_id):
                             'as': 'parent'
                         }
                     },
+                    {
+                        '$lookup': { # getting retweets count
+                            'from': 'retweet',
+                            'let': { 'post_id': '$_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                { '$count': 'count' }
+                            ],
+                            'as': 'retweets_count'
+                        }
+                        
+                    },
+                    {
+                        '$lookup': { # getting comments count
+                            'from': 'post',
+                            'let': { 'id': '$_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$id', '$parent'] } } },
+                                { '$count': 'count' }
+                            ],
+                            'as': 'comments_count'
+                        }
+                    },
+                    {
+                        '$lookup': { # getting likes count
+                            'from': 'like',
+                            'let': { 'post_id': '$_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                { '$count': 'count' }
+                            ],
+                            'as': 'likes_count'
+                        }
+                    },
                     { '$unwind': { 'path': '$parent', 'preserveNullAndEmptyArrays': True } },
+                    { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True } },
+                    { '$unwind': { 'path': '$comments_count', 'preserveNullAndEmptyArrays': True } },
+                    { '$unwind': { 'path': '$likes_count', 'preserveNullAndEmptyArrays': True }},
                     {
                         '$project': {
                             '_id': 1,
                             'text': 1,
                             'date': 1,
                             'img_path': 1,
-                            'parent': 1
+                            'parent': { '$ifNull': ['$parent', None] },
+                            'retweets_count': '$retweets_count.count',
+                            'comments_count': '$comments_count.count',
+                            'likes_count': '$likes_count.count'
                         }
                     }
                 ],
@@ -138,8 +178,8 @@ def get_user_posts(user_id):
                 'address': 1,
                 'birthday': 1,
                 'bio': 1,
-                'followers': { '$size': '$followers' },
-                'following': { '$size': '$following' },
+                'followers': 1,
+                'following': 1,
                 'posts': 1
             }
         }
@@ -149,6 +189,11 @@ def get_user_posts(user_id):
 
     user_dict = user_obj.next()
 
+    isFollower = False
+    for follower in user_dict['followers']:
+        if str(follower) == get_jwt_identity():
+            isFollower = True
+
     # USER
     user = {
         'id': str(user_dict['_id']),
@@ -157,15 +202,16 @@ def get_user_posts(user_id):
         'address': user_dict['address'] if 'address' in user_dict else None,
         'birthday': user_dict['birthday'] if 'birthday' in user_dict else None,
         'bio': user_dict['bio'] if 'bio' in user_dict else None,
-        'followers': user_dict['followers'],
-        'following': user_dict['following']
+        'followers': len(user_dict['followers']),
+        'following': len(user_dict['following']),
+        'isFollower': isFollower
     }
 
     # POST
     posts = [{('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in post.items()} for post in user_dict['posts']]
 
     for post in posts:
-        if 'parent' in post: # checking if parent exists in post
+        if post['parent'] is not None: # checking if parent exists in post
             post['parent'] = {('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in post['parent'].items()}
 
             post['parent']['author'] = {('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in post['parent']['author'].items()}
@@ -178,6 +224,15 @@ def get_user_posts(user_id):
                 parent_images = []
                 
             post['parent']['images'] = parent_images
+
+        if 'retweets_count' not in post:
+            post['retweets_count'] = 0
+            
+        if 'comments_count' not in post:
+            post['comments_count'] = 0
+
+        if 'likes_count' not in post:
+            post['likes_count'] = 0
 
         # adding images to post
         if 'img_path' in post:
