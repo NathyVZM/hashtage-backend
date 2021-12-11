@@ -9,7 +9,6 @@ from models.retweet import Retweet
 from models.like import Like
 from cloudinary import api
 import pprint
-from bson.objectid import ObjectId
 
 user_bp = Blueprint('user_bp', __name__)
 
@@ -284,8 +283,6 @@ def get_user_posts(user_id):
         }
     ])
 
-    pp = pprint.PrettyPrinter(sort_dicts=False)
-
     user_dict = user_obj.next()
 
     isFollower = False
@@ -408,99 +405,6 @@ def get_user_posts(user_id):
         'posts': posts,
         'retweets': retweets
     }, 200
-
-    # user_obj = User.objects(id=user_id).first()
-
-    # isFollower = False
-    # for follower in user_obj.followers:
-    #     if str(follower.id) == get_jwt_identity():
-    #         isFollower = True
-
-    # user = {
-    #     'id': str(user_obj.pk),
-    #     'full_name': user_obj.full_name,
-    #     'username': user_obj.username,
-    #     'address': user_obj.address,
-    #     'birthday': user_obj.birthday,
-    #     'bio': user_obj.bio,
-    #     'followers': len(user_obj.followers),
-    #     'following': len(user_obj.following),
-    #     'isFollower': isFollower
-    # }
-
-    # posts = []
-
-    # for post in Post.objects(author=user_id).order_by('-id'):
-    #     if post.img_path is not None:
-    #         images_resources = api.resources(type='upload', prefix=post.img_path)['resources']
-    #         images = [image['secure_url'] for image in images_resources]
-    #     else:
-    #         images = []
-        
-    #     didRetweet = False
-    #     for retweet in Retweet.objects(post_id=str(post.id)):
-    #         if str(retweet.user_id.id) == get_jwt_identity():
-    #             didRetweet = True
-        
-    #     didLike = False
-    #     for like in Like.objects(post_id=str(post.id)):
-    #         if str(like.user_id.id) == get_jwt_identity():
-    #             didLike = True
-        
-    #     posts.append({
-    #         'id': str(post.pk),
-    #         'text': post.text,
-    #         'date': post.date,
-    #         'images': images,
-    #         'retweets_count': Retweet.objects(post_id=str(post.pk)).count(),
-    #         'comments_count': Post.objects(parent=str(post.id)).count(),
-    #         'likes_count': Like.objects(post_id=str(post.id)).count(),
-    #         'didRetweet': didRetweet,
-    #         'didLike': didLike,
-    #         'parent': post.parent
-    #     })
-
-    # retweets = []
-
-    # for retweet in Retweet.objects(user_id=user_id).order_by('-id'):
-    #     if retweet.post_id.img_path is not None:
-    #         retweet_resources = api.resources(type='upload', prefix=retweet.post_id.img_path)['resources']
-    #         retweet_images = [image['secure_url'] for image in retweet_resources]
-    #     else:
-    #         retweet_images = []
-        
-    #     didRetweetPost = False
-    #     for r in Retweet.objects(post_id=str(retweet.post_id.id)):
-    #         if str(r.user_id.id) == get_jwt_identity():
-    #             didRetweetPost = True
-        
-    #     didLikePost = False
-    #     for like in Like.objects(post_id=str(retweet.post_id.id)):
-    #         if str(like.user_id.id) == get_jwt_identity():
-    #             didLikePost = True
-
-    #     retweets.append({
-    #         'id': str(retweet.id),
-    #         'post_id': {
-    #             'id': str(retweet.post_id.id),
-    #             'author': retweet.post_id.author,
-    #             'text': retweet.post_id.text,
-    #             'date': retweet.post_id.date,
-    #             'images': retweet_images,
-    #             'didRetweet': didRetweetPost,
-    #             'didLike': didLikePost,
-    #             'retweets_count': Retweet.objects(post_id=str(retweet.post_id.id)).count(),
-    #             'comments_count': Post.objects(parent=str(retweet.post_id.id)).count(),
-    #             'likes_count': Like.objects(post_id=str(retweet.post_id.id)).count()
-    #         }
-    #     })
-
-    # return {
-    #         'get': True,
-    #         'user': user,
-    #         'posts': posts,
-    #         'retweets': retweets
-    #     }, 200
 
 
 # get_user_likes
