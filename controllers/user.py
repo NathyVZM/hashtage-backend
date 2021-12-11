@@ -119,22 +119,134 @@ def get_user_posts(user_id):
             'date': post.date,
             'images': images,
             'retweets_count': Retweet.objects(post_id=str(post.pk)).count(),
+            'comments_count': Post.objects(parent=str(post.id)).count(),
+            'likes_count': Like.objects(post_id=str(post.id)).count(),
             'didRetweet': didRetweet,
-            'didLike': didLike
+            'didLike': didLike,
+            'parent': post.parent
         })
 
+    retweets = []
 
-    retweets = [{
-        'id': str(retweet.pk),
-        'post_id': retweet.post_id
-    } for retweet in Retweet.objects(user_id=user_id)]
+    for retweet in Retweet.objects(user_id=user_id):
+        if retweet.post_id.img_path is not None:
+            retweet_resources = api.resources(type='upload', prefix=retweet.post_id.img_path)['resources']
+            retweet_images = [image['secure_url'] for image in retweet_resources]
+        else:
+            retweet_images = []
+        
+        didRetweetPost = False
+        for r in Retweet.objects(post_id=str(retweet.post_id.id)):
+            if str(r.user_id.id) == get_jwt_identity():
+                didRetweetPost = True
+        
+        didLikePost = False
+        for like in Like.objects(post_id=str(retweet.post_id.id)):
+            if str(like.user_id.id) == get_jwt_identity():
+                didLikePost = True
+
+        retweets.append({
+            'id': str(retweet.id),
+            'post_id': {
+                'id': str(retweet.post_id.id),
+                'author': retweet.post_id.author,
+                'text': retweet.post_id.text,
+                'date': retweet.post_id.date,
+                'images': retweet_images,
+                'didRetweet': didRetweetPost,
+                'didLike': didLikePost,
+                'retweets_count': Retweet.objects(post_id=str(retweet.post_id.id)).count(),
+                'comments_count': Post.objects(parent=str(retweet.post_id.id)).count(),
+                'likes_count': Like.objects(post_id=str(retweet.post_id.id)).count()
+            }
+        })
+
+    # likes = []
+
+    # for like in Like.objects(user_id=user_id):
+    #     if like.post_id.img_path is not None:
+    #         like_resources = api.resources(type='upload', prefix=like.post_id.img_path)['resources']
+    #         like_images = [image['secure_url'] for image in like_resources]
+    #     else:
+    #         like_images = []
+        
+    #     didRetweetLike = False
+    #     for retweet in Retweet.objects(post_id=str(like.post_id.id)):
+    #         if str(retweet.user_id.id) == get_jwt_identity():
+    #             didRetweetLike = True
+        
+    #     didLike_Like = False
+    #     for l in Like.objects(post_id=str(like.post_id.id)):
+    #         if str(l.user_id.id) == get_jwt_identity():
+    #             didLike_Like = True
+        
+
+    #     likes.append({
+    #         'id': str(like.id),
+    #         'post_id': {
+    #             'id': str(like.post_id.id),
+    #             'author': like.post_id.author,
+    #             'text': like.post_id.text,
+    #             'date': like.post_id.date,
+    #             'images': like_images,
+    #             'didRetweet': didRetweetLike,
+    #             'didLike': didLike_Like,
+    #             'retweets_count': Retweet.objects(post_id=str(like.post_id.id)).count(),
+    #             'comments_count': Post.objects(parent=str(like.post_id.id)).count(),
+    #             'likes_count': Like.objects(post_id=str(like.post_id.id)).count()
+    #         }
+    #     })
 
     return {
             'get': True,
             'user': user,
             'posts': posts,
-            'retweets': retweets
+            'retweets': retweets,
+            # 'likes': likes
         }, 200
+
+
+# get_user_likes
+@user_bp.route('/user/likes/<string:user_id>', methods=['GET'])
+@jwt_required()
+def get_user_likes(user_id):
+    likes = []
+
+    for like in Like.objects(user_id=user_id):
+        if like.post_id.img_path is not None:
+            like_resources = api.resources(type='upload', prefix=like.post_id.img_path)['resources']
+            like_images = [image['secure_url'] for image in like_resources]
+        else:
+            like_images = []
+        
+        didRetweetLike = False
+        for retweet in Retweet.objects(post_id=str(like.post_id.id)):
+            if str(retweet.user_id.id) == get_jwt_identity():
+                didRetweetLike = True
+        
+        didLike_Like = False
+        for l in Like.objects(post_id=str(like.post_id.id)):
+            if str(l.user_id.id) == get_jwt_identity():
+                didLike_Like = True
+        
+
+        likes.append({
+            'id': str(like.id),
+            'post_id': {
+                'id': str(like.post_id.id),
+                'author': like.post_id.author,
+                'text': like.post_id.text,
+                'date': like.post_id.date,
+                'images': like_images,
+                'didRetweet': didRetweetLike,
+                'didLike': didLike_Like,
+                'retweets_count': Retweet.objects(post_id=str(like.post_id.id)).count(),
+                'comments_count': Post.objects(parent=str(like.post_id.id)).count(),
+                'likes_count': Like.objects(post_id=str(like.post_id.id)).count()
+            }
+        })
+    
+    return { 'likes': likes }
 
 
 

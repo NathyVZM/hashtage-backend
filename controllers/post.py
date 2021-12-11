@@ -136,6 +136,7 @@ def get_all_posts():
                         'didRetweet': didRetweet,
                         'didLike': didLike,
                         'comments_count': Post.objects(parent=str(retweet.post_id.pk)).count(),
+                        'likes_count': Like.objects(post_id=str(retweet.post_id.id)).count(),
                         'isAuthor': isAuthor
                     }
                 })
@@ -150,6 +151,7 @@ def get_all_posts():
                 'didRetweet': didRetweet,
                 'didLike': didLike,
                 'comments_count': Post.objects(parent=str(post.pk)).count(),
+                'likes_count': Like.objects(post_id=str(post.id)).count(),
                 'isAuthor': isAuthor
             })
 
@@ -227,6 +229,7 @@ def getChildren(comment_parent):
             'didRetweet': didRetweet,
             'didLike': didLike,
             'comments_count': Post.objects(parent=str(comment.pk)).count(),
+            'likes_count': Like.objects(post_id=str(comment.id)).count(),
             'children': getChildren(str(comment.pk)),
             'isAuthor': isAuthor
         })
@@ -288,6 +291,7 @@ def get_post_info(post_id):
             'didRetweet': didRetweetComment,
             'didLike': didLikeComment,
             'comments_count': Post.objects(parent=str(comment.pk)).count(),
+            'likes_count': Like.objects(post_id=str(comment.id)).count(),
             'children': getChildren(str(comment.pk)),
             'isAuthor': isAuthorComment
         })
@@ -304,6 +308,7 @@ def get_post_info(post_id):
         'didRetweet': didRetweet,
         'didLike': didLike,
         'comments_count': Post.objects(parent=post_id).count(),
+        'likes_count': Like.objects(post_id=post_id).count(),
         'children': comments,
         'isAuthor': isAuthor
     }
@@ -380,7 +385,8 @@ def search(text):
             'retweets_count': Retweet.objects(post_id=str(post.pk)).count(),
             'didRetweet': didRetweet,
             'didLike': didLike,
-            'comments_count': Post.objects(parent=str(post.pk)).count()
+            'comments_count': Post.objects(parent=str(post.pk)).count(),
+            'likes_count': Like.objects(post_id=str(post.id)).count()
         })
 
     users = [{
@@ -443,7 +449,7 @@ def unlike(post_id):
 @jwt_required()
 def timeline():
     user = User.objects(id=get_jwt_identity()).first()
-    
+
     posts = []
 
     for following in user.following:
@@ -475,6 +481,7 @@ def timeline():
                 'images': images,
                 'retweets_count': Retweet.objects(post_id=str(post.id)).count(),
                 'comments_count': Post.objects(parent=str(post.id)).count(),
+                'likes_count': Like.objects(post_id=str(post.id)).count(),
                 'didRetweet': didRetweet,
                 'didLike': didLike,
                 'isAuthor': isAuthor
@@ -508,6 +515,7 @@ def timeline():
                     'images': retweet_images,
                     'retweets_count': Retweet.objects(post_id=str(retweet.post_id.id)).count(),
                     'comments_count': Post.objects(parent=str(retweet.post_id.id)).count(),
+                    'likes_count': Like.objects(post_id=str(retweet.post_id.id)).count(),
                     'didRetweet': didRetweetPost,
                     'didLike': didLikePost,
                     'isAuthor': isAuthorPost
