@@ -128,7 +128,7 @@ def get_user_posts(user_id):
 
     retweets = []
 
-    for retweet in Retweet.objects(user_id=user_id):
+    for retweet in Retweet.objects(user_id=user_id).order_by('-id'):
         if retweet.post_id.img_path is not None:
             retweet_resources = api.resources(type='upload', prefix=retweet.post_id.img_path)['resources']
             retweet_images = [image['secure_url'] for image in retweet_resources]
@@ -212,7 +212,7 @@ def get_user_posts(user_id):
 def get_user_likes(user_id):
     likes = []
 
-    for like in Like.objects(user_id=user_id):
+    for like in Like.objects(user_id=user_id).order_by('-id'):
         if like.post_id.img_path is not None:
             like_resources = api.resources(type='upload', prefix=like.post_id.img_path)['resources']
             like_images = [image['secure_url'] for image in like_resources]
