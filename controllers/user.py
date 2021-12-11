@@ -205,7 +205,7 @@ def get_user_posts(user_id):
                                     }
                                 },
                                 {
-                                    '$lookup': {
+                                    '$lookup': { # getting retweets count
                                         'from': 'retweet',
                                         'let': { 'post_id': '$_id' },
                                         'pipeline': [
@@ -216,7 +216,7 @@ def get_user_posts(user_id):
                                     }
                                 },
                                 {
-                                    '$lookup': {
+                                    '$lookup': { # getting comments count
                                         'from': 'post',
                                         'let': { 'id': '$_id' },
                                         'pipeline': [
@@ -227,7 +227,7 @@ def get_user_posts(user_id):
                                     }
                                 },
                                 {
-                                    '$lookup': {
+                                    '$lookup': { # getting likes count
                                         'from': 'like',
                                         'let': { 'post_id': '$_id' },
                                         'pipeline': [
