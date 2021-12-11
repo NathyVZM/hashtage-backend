@@ -172,6 +172,99 @@ def get_user_posts(user_id):
             }
         },
         {
+            '$lookup': {
+                'from': 'retweet', # getting retweets
+                'let': { 'id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$id', '$user_id'] } } },
+                    { '$sort': { '_id': -1 } },
+                    {
+                        '$lookup': { # getting post for retweets
+                            'from': 'post',
+                            'let': { 'post_id': '$post_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$post_id', '$_id'] } } },
+                                {
+                                    '$lookup': {
+                                        'from': 'user', # getting post author
+                                        'let': { 'author': '$author' },
+                                        'pipeline': [
+                                            { '$match': { '$expr': { '$eq': ['$$author', '$_id'] } } },
+                                            {
+                                                '$project': {
+                                                    '_id': 1,
+                                                    'full_name': 1,
+                                                    'username': 1
+                                                }
+                                            }
+                                        ],
+                                        'as': 'author'
+                                    }
+                                },
+                                {
+                                    '$lookup': {
+                                        'from': 'retweet',
+                                        'let': { 'post_id': '$_id' },
+                                        'pipeline': [
+                                            { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                            { '$count': 'count' }
+                                        ],
+                                        'as': 'retweets_count'
+                                    }
+                                },
+                                {
+                                    '$lookup': {
+                                        'from': 'post',
+                                        'let': { 'id': '$_id' },
+                                        'pipeline': [
+                                            { '$match': { '$expr': { '$eq': ['$$id', '$parent'] } } },
+                                            { '$count': 'count' }
+                                        ],
+                                        'as': 'comments_count'
+                                    }
+                                },
+                                {
+                                    '$lookup': {
+                                        'from': 'like',
+                                        'let': { 'post_id': '$_id' },
+                                        'pipeline': [
+                                            { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                            { '$count': 'count'}
+                                        ],
+                                        'as': 'likes_count'
+                                    }
+                                },
+                                { '$unwind': '$author' },
+                                { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True }},
+                                { '$unwind': { 'path': '$comments_count', 'preserveNullAndEmptyArrays': True }},
+                                { '$unwind': { 'path': '$likes_count', 'preserveNullAndEmptyArrays': True }},
+                                {
+                                    '$project': {
+                                        '_id': 1,
+                                        'author': 1,
+                                        'text': 1,
+                                        'date': 1,
+                                        'img_path': 1,
+                                        'retweets_count': '$retweets_count.count',
+                                        'comments_count': '$comments_count.count',
+                                        'likes_count': '$likes_count.count'
+                                    }
+                                }
+                            ],
+                            'as': 'post_id'
+                        }
+                    },
+                    { '$unwind': '$post_id' },
+                    {
+                        '$project': {
+                            'user_id': 0
+                        }
+                    }
+                ],
+                'as': 'retweets'
+            }
+        },
+        {
             '$project': {
                 '_id': 1,
                 'full_name': 1,
@@ -181,7 +274,8 @@ def get_user_posts(user_id):
                 'bio': 1,
                 'followers': 1,
                 'following': 1,
-                'posts': 1
+                'posts': 1,
+                'retweets': 1
             }
         }
     ])
@@ -260,6 +354,25 @@ def get_user_posts(user_id):
         
         post['didLike'] = didLike
 
+
+    # RETWEETS
+    retweets = [{('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in retweet.items()} for retweet in user_dict['retweets']]
+
+    for retweet in retweets:
+        retweet['post_id'] = {('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in retweet['post_id'].items()}
+
+        retweet['post_id']['author'] = {('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in retweet['post_id']['author'].items()}
+
+        if 'retweets_count' not in retweet['post_id']:
+            retweet['post_id']['retweets_count'] = 0
+        
+        if 'comments_count' not in retweet['post_id']:
+            retweet['post_id']['comments_count'] = 0
+        
+        if 'likes_count' not in retweet['post_id']:
+            retweet['post_id']['likes_count'] = 0
+
+    pp.pprint(retweets)
 
 
     return {
