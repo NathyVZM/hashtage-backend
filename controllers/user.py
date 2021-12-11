@@ -78,11 +78,45 @@ def get_user_posts(user_id):
     user_obj = User.objects(id=user_id).aggregate([
         {
             '$lookup': {
-                'from': 'post',
+                'from': 'post', # getting posts
                 'let': { 'author': '$_id' },
                 'pipeline': [
                     { '$match': { '$expr': { '$eq': ['$$author', '$author'] } } },
                     { '$sort': { '_id': -1 } },
+                    {
+                        '$lookup': {
+                            'from': 'post', # getting posts parent
+                            'let': { 'parent': '$parent' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$parent', '$_id'] } } },
+                                {
+                                    '$lookup': {
+                                        'from': 'user', # getting parent author
+                                        'let': { 'author': '$author' },
+                                        'pipeline': [
+                                            { '$match': { '$expr': { '$eq': ['$$author', '$_id'] } } },
+                                            {
+                                                '$project': {
+                                                    '_id': 1,
+                                                    'full_name': 1,
+                                                    'username': 1
+                                                }
+                                            }
+                                        ],
+                                        'as': 'author'
+                                    }
+                                },
+                                { '$unwind': '$author' },
+                                {
+                                    '$project': {
+                                        'parent': 0
+                                    }
+                                }
+                            ],
+                            'as': 'parent'
+                        }
+                    },
+                    { '$unwind': { 'path': '$parent', 'preserveNullAndEmptyArrays': True } },
                     {
                         '$project': {
                             '_id': 1,
@@ -114,12 +148,53 @@ def get_user_posts(user_id):
     pp = pprint.PrettyPrinter(sort_dicts=False)
 
     user_dict = user_obj.next()
-    
-    pp.pprint(user_dict)
+
+    # USER
+    user = {
+        'id': str(user_dict['_id']),
+        'full_name': user_dict['full_name'],
+        'username': user_dict['username'],
+        'address': user_dict['address'] if 'address' in user_dict else None,
+        'birthday': user_dict['birthday'] if 'birthday' in user_dict else None,
+        'bio': user_dict['bio'] if 'bio' in user_dict else None,
+        'followers': user_dict['followers'],
+        'following': user_dict['following']
+    }
+
+    # POST
+    posts = [{('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in post.items()} for post in user_dict['posts']]
+
+    for post in posts:
+        if 'parent' in post: # checking if parent exists in post
+            post['parent'] = {('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in post['parent'].items()}
+
+            post['parent']['author'] = {('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in post['parent']['author'].items()}
+
+            # adding images to parent
+            if 'img_path' in post['parent']:
+                parent_resources = api.resources(type='upload', prefix=post['parent']['img_path'])['resources']
+                parent_images = [image['secure_url'] for image in parent_resources]
+            else:
+                parent_images = []
+                
+            post['parent']['images'] = parent_images
+
+        # adding images to post
+        if 'img_path' in post:
+            images_resources = api.resources(type='upload', prefix=post['img_path'])['resources']
+            images = [image['secure_url'] for image in images_resources]
+        else:
+            images = []
+        
+        post['images'] = images
+
+    # pp.pprint(posts)
 
     return {
-        'id': user_id
-    }
+        'user': user,
+        'posts': posts
+    }, 200
+
     # user_obj = User.objects(id=user_id).first()
 
     # isFollower = False
