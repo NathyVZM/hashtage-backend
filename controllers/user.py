@@ -1,7 +1,6 @@
 # user.py
 
 from datetime import datetime
-from re import S
 from flask import Blueprint, request
 from flask_jwt_extended import create_access_token, create_refresh_token ,get_jwt_identity, jwt_required
 from models.user import User
@@ -9,8 +8,6 @@ from models.post import Post
 from models.retweet import Retweet
 from models.like import Like
 from cloudinary import api
-import pprint
-from bson.objectid import ObjectId
 
 user_bp = Blueprint('user_bp', __name__)
 
@@ -413,8 +410,6 @@ def get_user_posts(user_id):
 def get_user_likes(user_id):
     likes = []
 
-    pp = pprint.PrettyPrinter(sort_dicts=False)
-
     for like in Like.objects(user_id=user_id).order_by('-id'):
         post_obj = Post.objects(id=str(like.post_id.id)).aggregate([
             {
@@ -527,8 +522,6 @@ def get_user_likes(user_id):
             'id': str(like.id),
             'post_id': post
         })
-    
-    pp.pprint(likes)
 
     return {
         'likes': likes
