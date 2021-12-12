@@ -1,5 +1,6 @@
 # post.py
 
+from os import truncate
 import pprint
 from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -10,7 +11,6 @@ from models.like import Like
 from mongoengine.queryset.visitor import Q
 from cloudinary import uploader, api
 import time
-from bson.objectid import ObjectId
 
 post_bp = Blueprint('post_bp', __name__)
 
@@ -33,16 +33,116 @@ def create_post():
             print(index, image.filename)
             uploader.upload_image(image, folder=f'hashtage/{str(post.author.pk)}/{str(post.pk)}', 
             public_id=str(time.time()))
+        
+    post_data = Post.objects(id=str(post.id)).aggregate([
+        {
+            '$lookup': {
+                'from': 'user',
+                'let': { 'author': '$author' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$author', '$_id']} } },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'id': { '$toString': '$_id'},
+                            'full_name': 1,
+                            'username': 1
+                        }
+                    }
+                ],
+                'as': 'author'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'retweet',
+                'let': { 'post_id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                    { '$count': 'count' }
+                ],
+                'as': 'retweets_count'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'post',
+                'let': { 'id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$id', '$parent'] } } },
+                    { '$count': 'count' }
+                ],
+                'as': 'comments_count'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'like',
+                'let': { 'post_id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                    { '$count': 'count' }
+                ],
+                'as': 'likes_count'
+            }
+        },
+        { '$unwind': '$author' },
+        { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True } },
+        { '$unwind': { 'path': '$comments_count', 'preserveNullAndEmptyArrays': True } },
+        { '$unwind': { 'path': '$likes_count', 'preserveNullAndEmptyArrays': True } },
+        {
+            '$project': {
+                '_id': 0,
+                'id': { '$toString': '$_id' },
+                'author': 1,
+                'text': 1,
+                'date': 1,
+                'img_path': { '$ifNull': ['$img_path', None] },
+                'retweets_count': '$retweets_count.count',
+                'comments_count': '$comments_count.count',
+                'likes_count': '$likes_count.count'
+            }
+        }
+    ])
+
+    post_dict = post_data.next()
+
+    if post_dict['img_path'] is not None:
+        images_resources = api.resources(type='upload', prefix=post_dict['img_path'])['resources']
+        images = [image['secure_url'] for image in images_resources]
+    else:
+        images = []
+    
+    post_dict['images'] = images
+
+    if 'retweets_count' not in post_dict:
+        post_dict['retweets_count'] = 0
+    
+    if 'comments_count' not in post_dict:
+        post_dict['comments_count'] = 0
+    
+    if 'likes_count' not in post_dict:
+        post_dict['likes_count'] = 0
+    
+    # didRetweet
+    didRetweet = False
+    for retweet in Retweet.objects(post_id=post_dict['id']):
+        if str(retweet.user_id.id) == get_jwt_identity():
+            didRetweet = True
+    
+    post_dict['didRetweet'] = didRetweet
+
+    # didLike
+    didLike = False
+    for like in Like.objects(post_id=post_dict['id']):
+        if str(like.user_id.id) == get_jwt_identity():
+            didLike = True
+    
+    post_dict['didLike'] = didLike
     
     return {
         'created': True,
-        'post': {
-            'id': str(post.pk),
-            'author': post.author,
-            'text': post.text,
-            'date': post.date,
-            'img_path': post.img_path
-        }
+        'post': post_dict
     }, 201
 
 
