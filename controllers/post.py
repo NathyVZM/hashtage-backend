@@ -37,7 +37,7 @@ def create_post():
     post_data = Post.objects(id=str(post.id)).aggregate([
         {
             '$lookup': {
-                'from': 'user',
+                'from': 'user', # getting author for post
                 'let': { 'author': '$author' },
                 'pipeline': [
                     { '$match': { '$expr': { '$eq': ['$$author', '$_id']} } },
@@ -55,7 +55,7 @@ def create_post():
         },
         {
             '$lookup': {
-                'from': 'retweet',
+                'from': 'retweet', # getting retweets count
                 'let': { 'post_id': '$_id' },
                 'pipeline': [
                     { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
@@ -66,7 +66,7 @@ def create_post():
         },
         {
             '$lookup': {
-                'from': 'post',
+                'from': 'post', # getting comments count
                 'let': { 'id': '$_id' },
                 'pipeline': [
                     { '$match': { '$expr': { '$eq': ['$$id', '$parent'] } } },
@@ -77,7 +77,7 @@ def create_post():
         },
         {
             '$lookup': {
-                'from': 'like',
+                'from': 'like', # getting likes count
                 'let': { 'post_id': '$_id' },
                 'pipeline': [
                     { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
@@ -490,6 +490,137 @@ def create_comment(post_id):
             print(index, image.filename)
             uploader.upload_image(image, folder=f'hashtage/{str(comment.author.pk)}/{str(comment.pk)}',
             public_id=str(time.time()))
+    
+    comment_data = Post.objects(id=str(comment.id)).aggregate([
+        {
+            '$lookup': {
+                'from': 'user', # getting author for comment
+                'let': { 'author': '$author' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$author', '$_id'] } } },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'id': { '$toString': '$_id' },
+                            'full_name': 1,
+                            'username': 1
+                        }
+                    }
+                ],
+                'as': 'author'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'post', # getting parent for comment
+                'let': { 'parent': '$parent' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$parent', '$_id'] } } },
+                    {
+                        '$lookup': {
+                            'from': 'user',
+                            'let': { 'author': '$author' },
+                            'pipeline': [],
+                            'as': 'author'
+                        }
+                    },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'id': { '$toString': '$_id' },
+                            'author': 1,
+                            'text': 1,
+                            'date': 1,
+                            'img_path': { '$ifNull': ['$img_path', None] }
+                        }
+                    }
+                ],
+                'as': 'parent'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'retweet', # getting retweets count
+                'let': { 'post_id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                    { '$count': 'count' }
+                ],
+                'as': 'retweets_count'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'post', # getting comments count
+                'let': { 'id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$id', '$parent'] } } },
+                    { '$count': 'count' }
+                ],
+                'as': 'comments_count'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'like', # getting likes count
+                'let': { 'post_id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                    { '$count': 'count' }
+                ],
+                'as': 'likes_count'
+            }
+        },
+        { '$unwind': '$author' },
+        { '$unwind': '$parent' },
+        { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True } },
+        { '$unwind': { 'path': '$comments_count', 'preserveNullAndEmptyArrays': True } },
+        { '$unwind': { 'path': '$likes_count', 'preserveNullAndEmptyArrays': True } },
+        {
+            '$project': {
+                '_id': 0,
+                'id': { '$toString': '$_id' },
+                'author': 1,
+                'text': 1,
+                'date': 1,
+                'img_path': { '$ifNull': ['$img_path', None] },
+                'parent': { '$ifNull': ['$parent', None] },
+                'retweets_count': '$retweets_count.count',
+                'comments_count': '$comments_count.count',
+                'likes_count': '$likes_count.count'
+            }
+        }
+    ])
+
+    comment_dict = comment_data.next()
+
+    if 'retweets_count' not in comment_dict:
+        comment_dict['retweets_count'] = 0
+    
+    if 'comments_count' not in comment_dict:
+        comment_dict['comments_count'] = 0
+    
+    if 'likes_count' not in comment_dict:
+        comment_dict['likes_count'] = 0
+    
+    # didRetweet
+    didRetweet = False
+    for retweet in Retweet.objects(post_id=comment_dict['id']):
+        if str(retweet.user_id.id) == get_jwt_identity():
+            didRetweet = True
+    
+    comment_dict['didRetweet'] = didRetweet
+
+    # didLike
+    didLike = False
+    for like in Like.objects(post_id=comment_dict['id']):
+        if str(like.user_id.id) == get_jwt_identity():
+            didLike = True
+    
+    comment_dict['didLike'] = didLike
+
+    pp = pprint.PrettyPrinter(sort_dicts=False)
+    pp.pprint(comment_dict)
 
     return {
         'created': True,
