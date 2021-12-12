@@ -99,7 +99,8 @@ def get_user_posts(user_id):
                                             { '$match': { '$expr': { '$eq': ['$$author', '$_id'] } } },
                                             {
                                                 '$project': {
-                                                    '_id': 1,
+                                                    '_id': 0,
+                                                    'id': { '$toString': '$_id' },
                                                     'full_name': 1,
                                                     'username': 1
                                                 }
@@ -111,7 +112,8 @@ def get_user_posts(user_id):
                                 { '$unwind': '$author' },
                                 {
                                     '$project': {
-                                        '_id': 1,
+                                        '_id': 0,
+                                        'id': { '$toString': '$_id' },
                                         'author': 1,
                                         'text': 1,
                                         'date': 1,
@@ -162,7 +164,8 @@ def get_user_posts(user_id):
                     { '$unwind': { 'path': '$likes_count', 'preserveNullAndEmptyArrays': True }},
                     {
                         '$project': {
-                            '_id': 1,
+                            '_id': 0,
+                            'id': { '$toString': '$_id' },
                             'text': 1,
                             'date': 1,
                             'img_path': { '$ifNull': ['$img_path', None] },
@@ -197,7 +200,8 @@ def get_user_posts(user_id):
                                             { '$match': { '$expr': { '$eq': ['$$author', '$_id'] } } },
                                             {
                                                 '$project': {
-                                                    '_id': 1,
+                                                    '_id': 0,
+                                                    'id': { '$toString': '$_id' },
                                                     'full_name': 1,
                                                     'username': 1
                                                 }
@@ -245,7 +249,8 @@ def get_user_posts(user_id):
                                 { '$unwind': { 'path': '$likes_count', 'preserveNullAndEmptyArrays': True }},
                                 {
                                     '$project': {
-                                        '_id': 1,
+                                        '_id': 0,
+                                        'id': { '$toString': '$_id' },
                                         'author': 1,
                                         'text': 1,
                                         'date': 1,
@@ -262,7 +267,9 @@ def get_user_posts(user_id):
                     { '$unwind': '$post_id' },
                     {
                         '$project': {
-                            'user_id': 0
+                            '_id': 0,
+                            'id': { '$toString': '$_id' },
+                            'post_id': 1
                         }
                     }
                 ],
@@ -271,7 +278,8 @@ def get_user_posts(user_id):
         },
         {
             '$project': {
-                '_id': 1,
+                '_id': 0,
+                'id': { '$toString': '$_id' },
                 'full_name': 1,
                 'username': 1,
                 'address': 1,
@@ -294,7 +302,7 @@ def get_user_posts(user_id):
 
     # USER
     user = {
-        'id': str(user_dict['_id']),
+        'id': user_dict['id'],
         'full_name': user_dict['full_name'],
         'username': user_dict['username'],
         'address': user_dict['address'] if 'address' in user_dict else None,
@@ -306,14 +314,10 @@ def get_user_posts(user_id):
     }
 
     # POST
-    posts = [{('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in post.items()} for post in user_dict['posts']]
+    posts = user_dict['posts']
 
     for post in posts:
-        if post['parent'] is not None: # checking if parent exists in post
-            post['parent'] = {('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in post['parent'].items()}
-
-            post['parent']['author'] = {('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in post['parent']['author'].items()}
-
+        if post['parent'] is not None:
             # adding images to parent
             if post['parent']['img_path'] is not None:
                 parent_resources = api.resources(type='upload', prefix=post['parent']['img_path'])['resources']
@@ -359,14 +363,9 @@ def get_user_posts(user_id):
 
 
     # RETWEET
-    retweets = [{('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in retweet.items()} for retweet in user_dict['retweets']]
+    retweets = user_dict['retweets']
 
     for retweet in retweets:
-        retweet['post_id'] = {('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in retweet['post_id'].items()}
-
-        retweet['post_id']['author'] = {('id' if key == '_id' else key):(str(value) if key == '_id' else value) for key, value in retweet['post_id']['author'].items()}
-
-
         # adding images to post retweet
         if retweet['post_id']['img_path'] is not None:
             retweet_resources = api.resources(type='upload', prefix=retweet['post_id']['img_path'])['resources']
@@ -400,7 +399,6 @@ def get_user_posts(user_id):
                 didLikePost = True
         
         retweet['post_id']['didLike'] = didLikePost
-
 
     return {
         'user': user,
@@ -535,43 +533,6 @@ def get_user_likes(user_id):
     return {
         'likes': likes
     }
-    # likes = []
-
-    # for like in Like.objects(user_id=user_id).order_by('-id'):
-    #     if like.post_id.img_path is not None:
-    #         like_resources = api.resources(type='upload', prefix=like.post_id.img_path)['resources']
-    #         like_images = [image['secure_url'] for image in like_resources]
-    #     else:
-    #         like_images = []
-        
-    #     didRetweetLike = False
-    #     for retweet in Retweet.objects(post_id=str(like.post_id.id)):
-    #         if str(retweet.user_id.id) == get_jwt_identity():
-    #             didRetweetLike = True
-        
-    #     didLike_Like = False
-    #     for l in Like.objects(post_id=str(like.post_id.id)):
-    #         if str(l.user_id.id) == get_jwt_identity():
-    #             didLike_Like = True
-        
-
-    #     likes.append({
-    #         'id': str(like.id),
-    #         'post_id': {
-    #             'id': str(like.post_id.id),
-    #             'author': like.post_id.author,
-    #             'text': like.post_id.text,
-    #             'date': like.post_id.date,
-    #             'images': like_images,
-    #             'didRetweet': didRetweetLike,
-    #             'didLike': didLike_Like,
-    #             'retweets_count': Retweet.objects(post_id=str(like.post_id.id)).count(),
-    #             'comments_count': Post.objects(parent=str(like.post_id.id)).count(),
-    #             'likes_count': Like.objects(post_id=str(like.post_id.id)).count()
-    #         }
-    #     })
-    
-    # return { 'likes': likes }
 
 
 
