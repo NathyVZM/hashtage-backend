@@ -518,12 +518,23 @@ def create_comment(post_id):
                     { '$match': { '$expr': { '$eq': ['$$parent', '$_id'] } } },
                     {
                         '$lookup': {
-                            'from': 'user',
+                            'from': 'user', # getting author for parent post
                             'let': { 'author': '$author' },
-                            'pipeline': [],
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$author', '$_id'] } } },
+                                {
+                                    '$project': {
+                                        '_id': 0,
+                                        'id': { '$toString': '$_id'},
+                                        'full_name': 1,
+                                        'username': 1
+                                    }
+                                }
+                            ],
                             'as': 'author'
                         }
                     },
+                    { '$unwind': '$author' },
                     {
                         '$project': {
                             '_id': 0,
@@ -624,14 +635,7 @@ def create_comment(post_id):
 
     return {
         'created': True,
-        'comment': {
-            'id': str(comment.pk),
-            'text': comment.text,
-            'author': comment.author,
-            'date': comment.date,
-            'img_path': comment.img_path,
-            'parent': comment.parent
-        }
+        'comment': comment_dict
     }, 201
 
 
