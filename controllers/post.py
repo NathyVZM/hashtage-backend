@@ -756,6 +756,38 @@ def get_post_info(post_id):
                             'as': 'likes_count'
                         }
                     },
+                    {
+                        '$lookup': {
+                            'from': 'retweet', # getting retweets for didRetweet
+                            'let': { 'post_id': '$_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                {
+                                    '$project': {
+                                        '_id': 0,
+                                        'user_id': { '$toString': '$user_id' }
+                                    }
+                                }
+                            ],
+                            'as': 'retweets'
+                        }
+                    },
+                    {
+                        '$lookup': {
+                            'from': 'like', # getting likes for didLike
+                            'let': { 'post_id': '$_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                {
+                                    '$project': {
+                                        '_id': 0,
+                                        'user_id': { '$toString': '$user_id' }
+                                    }
+                                }
+                            ],
+                            'as': 'likes'
+                        }
+                    },
                     { '$unwind': '$author' },
                     { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True } },
                     { '$unwind': { 'path': '$comments_count', 'preserveNullAndEmptyArrays': True } },
@@ -771,7 +803,9 @@ def get_post_info(post_id):
                             'retweets_count': '$retweets_count.count',
                             'comments_count': '$comments_count.count',
                             'likes_count': '$likes_count.count',
-                            'isAuthor': { '$cond': { 'if': { '$eq': ['$author.id', get_jwt_identity()] }, 'then': True, 'else': False } }
+                            'isAuthor': { '$cond': { 'if': { '$eq': ['$author.id', get_jwt_identity()] }, 'then': True, 'else': False } },
+                            'retweets': 1,
+                            'likes': 1
                         }
                     }
                 ],
@@ -827,6 +861,38 @@ def get_post_info(post_id):
                 'as': 'likes_count'
             }
         },
+        {
+            '$lookup': {
+                'from': 'retweet', # getting retweets for didRetweet
+                'let': { 'post_id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'user_id': { '$toString': '$user_id' }
+                        }
+                    }
+                ],
+                'as': 'retweets'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'like', # getting likes for didLike
+                'let': { 'post_id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'user_id': { '$toString': '$user_id' }
+                        }
+                    }
+                ],
+                'as': 'likes'
+            }
+        },
         { '$unwind': '$author' },
         { '$unwind': { 'path': '$parent', 'preserveNullAndEmptyArrays': True } },
         { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True } },
@@ -845,7 +911,9 @@ def get_post_info(post_id):
                 'retweets_count': '$retweets_count.count',
                 'comments_count': '$comments_count.count',
                 'likes_count': '$likes_count.count',
-                'isAuthor': { '$cond': { 'if': { '$eq': ['$author.id', get_jwt_identity()] }, 'then': True, 'else': False } }
+                'isAuthor': { '$cond': { 'if': { '$eq': ['$author.id', get_jwt_identity()] }, 'then': True, 'else': False } },
+                'retweets': 1,
+                'likes': 1
             }
         }
     ])
@@ -872,16 +940,16 @@ def get_post_info(post_id):
 
     # didRetweet
     didRetweet = False
-    for retweet in Retweet.objects(post_id=post['id']):
-        if str(retweet.user_id.id) == get_jwt_identity():
+    for retweet in post['retweets']:
+        if retweet['user_id'] == get_jwt_identity():
             didRetweet = True
     
     post['didRetweet'] = didRetweet
 
     # didLike
     didLike = False
-    for like in Like.objects(post_id=post['id']):
-        if str(like.user_id.id) == get_jwt_identity():
+    for like in post['likes']:
+        if like['user_id'] == get_jwt_identity():
             didLike = True
 
     post['didLike'] = didLike
@@ -909,19 +977,25 @@ def get_post_info(post_id):
 
         # didRetweet
         didRetweetChild = False
-        for retweet in Retweet.objects(post_id=child['id']):
-            if str(retweet.user_id.id) == get_jwt_identity():
+        for retweet in child['retweets']:
+            if retweet['user_id'] == get_jwt_identity():
                 didRetweetChild = True
         
         child['didRetweet'] = didRetweetChild
 
         # didLike
         didLike = False
-        for like in Like.objects(post_id=child['id']):
-            if str(like.user_id.id) == get_jwt_identity():
+        for like in child['likes']:
+            if like['user_id'] == get_jwt_identity():
                 didLike = True
         
         child['didLike'] = didLike
+
+        del child['retweets']
+        del child['likes']
+    
+    del post['retweets']
+    del post['likes']
 
     return post, 200
 
