@@ -623,7 +623,7 @@ def create_comment(post_id):
 
 
 # FUNCTION getChildren()
-def getChildren(comment_parent):
+# def getChildren(comment_parent):
     children = []
 
     for comment in Post.objects(parent=comment_parent):
@@ -960,54 +960,174 @@ def unretweet(post_id):
 @post_bp.route('/search/<string:text>', methods=['GET'])
 @jwt_required()
 def search(text):
+    # POSTS
+    posts_data = Post.objects(text__icontains=text).aggregate([
+        { '$sort': { '_id': -1 } },
+        {
+            '$lookup': {
+                'from': 'user',
+                'let': { 'author': '$author' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$author', '$_id'] } } },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'id': { '$toString': '$_id' },
+                            'full_name': 1,
+                            'username': 1
+                        }
+                    }
+                ],
+                'as': 'author'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'retweet',
+                'let': { 'post_id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                    { '$count': 'count' }
+                ],
+                'as': 'retweets_count'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'post',
+                'let': { 'id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$id', '$parent'] } } },
+                    { '$count': 'count' }
+                ],
+                'as': 'comments_count'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'like',
+                'let': { 'post_id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                    { '$count': 'count' }
+                ],
+                'as': 'likes_count'
+            }
+        },
+        { '$unwind': '$author' },
+        { '$unwind': { 'path': '$retweets_count' ,'preserveNullAndEmptyArrays': True } },
+        { '$unwind': { 'path': '$comments_count' ,'preserveNullAndEmptyArrays': True } },
+        { '$unwind': { 'path': '$likes_count' ,'preserveNullAndEmptyArrays': True } },
+        {
+            '$project': {
+                '_id': 0,
+                'id': { '$toString': '$_id' },
+                'author': 1,
+                'text': 1,
+                'date': 1,
+                'img_path': { '$ifNull': ['$img_path', None] },
+                'retweets_count': '$retweets_count.count',
+                'comments_count': '$comments_count.count',
+                'likes_count': '$likes_count.count'
+            }
+        }
+    ])
+
     posts = []
 
-    for post in Post.objects(text__icontains=text).order_by('-id'):
-        if post.img_path is not None:
-            images_resources = api.resources(type='upload', prefix=post.img_path)['resources']
+    for post in posts_data:
+        if 'retweets_count' not in post:
+            post['retweets_count'] = 0
+        
+        if 'comments_count' not in post:
+            post['comments_count'] = 0
+        
+        if 'likes_count' not in post:
+            post['likes_count'] = 0
+        
+        # adding images to post
+        if post['img_path'] is not None:
+            images_resources = api.resources(type='upload', prefix=post['img_path'])['resources']
             images = [image['secure_url'] for image in images_resources]
         else:
             images = []
         
+        post['images'] = images
+
+        # didRetweet
         didRetweet = False
-        for retweet in Retweet.objects(post_id=str(post.pk)):
-            if str(retweet.user_id.pk) == get_jwt_identity():
+        for retweet in Retweet.objects(post_id=post['id']):
+            if str(retweet.user_id.id) == get_jwt_identity():
                 didRetweet = True
         
+        post['didRetweet'] = didRetweet
+
+        # didLike
         didLike = False
-        for like in Like.objects(post_id=str(post.id)):
+        for like in Like.objects(post_id=post['id']):
             if str(like.user_id.id) == get_jwt_identity():
                 didLike = True
         
-        posts.append({
-            'id': str(post.pk),
-            'author': post.author,
-            'text': post.text,
-            'date': post.date,
-            'images': images,
-            'parent': post.parent,
-            'retweets_count': Retweet.objects(post_id=str(post.pk)).count(),
-            'didRetweet': didRetweet,
-            'didLike': didLike,
-            'comments_count': Post.objects(parent=str(post.pk)).count(),
-            'likes_count': Like.objects(post_id=str(post.id)).count()
-        })
+        post['didLike'] = didLike
 
+        posts.append(post)
+
+    # USERS
     users = [{
-        'id': str(user.pk),
+        'id': str(user.id),
         'full_name': user.full_name,
-        'username': user.username,
-        'address': user.address,
-        'birthday': user.birthday,
-        'bio': user.bio,
-        'followers': len(user.followers),
-        'following': len(user.following)
+        'username': user.username
     } for user in User.objects(Q(username__icontains=text) | Q(full_name__icontains=text))]
 
-    return {
-        'posts': posts,
-        'users': users
-    }, 200
+    return { 'users': users, 'posts': posts }, 200
+    # posts = []
+
+    # for post in Post.objects(text__icontains=text).order_by('-id'):
+    #     if post.img_path is not None:
+    #         images_resources = api.resources(type='upload', prefix=post.img_path)['resources']
+    #         images = [image['secure_url'] for image in images_resources]
+    #     else:
+    #         images = []
+        
+    #     didRetweet = False
+    #     for retweet in Retweet.objects(post_id=str(post.pk)):
+    #         if str(retweet.user_id.pk) == get_jwt_identity():
+    #             didRetweet = True
+        
+    #     didLike = False
+    #     for like in Like.objects(post_id=str(post.id)):
+    #         if str(like.user_id.id) == get_jwt_identity():
+    #             didLike = True
+        
+    #     posts.append({
+    #         'id': str(post.pk),
+    #         'author': post.author,
+    #         'text': post.text,
+    #         'date': post.date,
+    #         'images': images,
+    #         'parent': post.parent,
+    #         'retweets_count': Retweet.objects(post_id=str(post.pk)).count(),
+    #         'didRetweet': didRetweet,
+    #         'didLike': didLike,
+    #         'comments_count': Post.objects(parent=str(post.pk)).count(),
+    #         'likes_count': Like.objects(post_id=str(post.id)).count()
+    #     })
+
+    # users = [{
+    #     'id': str(user.pk),
+    #     'full_name': user.full_name,
+    #     'username': user.username,
+    #     'address': user.address,
+    #     'birthday': user.birthday,
+    #     'bio': user.bio,
+    #     'followers': len(user.followers),
+    #     'following': len(user.following)
+    # } for user in User.objects(Q(username__icontains=text) | Q(full_name__icontains=text))]
+
+    # return {
+    #     'posts': posts,
+    #     'users': users
+    # }, 200
 
 
 # like()
