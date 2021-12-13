@@ -517,32 +517,9 @@ def create_comment(post_id):
                 'pipeline': [
                     { '$match': { '$expr': { '$eq': ['$$parent', '$_id'] } } },
                     {
-                        '$lookup': {
-                            'from': 'user', # getting author for parent post
-                            'let': { 'author': '$author' },
-                            'pipeline': [
-                                { '$match': { '$expr': { '$eq': ['$$author', '$_id'] } } },
-                                {
-                                    '$project': {
-                                        '_id': 0,
-                                        'id': { '$toString': '$_id'},
-                                        'full_name': 1,
-                                        'username': 1
-                                    }
-                                }
-                            ],
-                            'as': 'author'
-                        }
-                    },
-                    { '$unwind': '$author' },
-                    {
                         '$project': {
                             '_id': 0,
-                            'id': { '$toString': '$_id' },
-                            'author': 1,
-                            'text': 1,
-                            'date': 1,
-                            'img_path': { '$ifNull': ['$img_path', None] }
+                            'id': { '$toString': '$_id' }
                         }
                     }
                 ],
@@ -629,9 +606,6 @@ def create_comment(post_id):
             didLike = True
     
     comment_dict['didLike'] = didLike
-
-    pp = pprint.PrettyPrinter(sort_dicts=False)
-    pp.pprint(comment_dict)
 
     return {
         'created': True,
