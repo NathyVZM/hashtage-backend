@@ -1014,6 +1014,38 @@ def search(text):
                 'as': 'likes_count'
             }
         },
+        {
+            '$lookup': {
+                'from': 'retweet', # getting retweets for didRetweet
+                'let': { 'post_id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'user_id': { '$toString': '$user_id' }
+                        }
+                    }
+                ],
+                'as': 'retweets'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'like',
+                'let': { 'post_id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'user_id': { '$toString': '$user_id' }
+                        }
+                    }
+                ],
+                'as': 'likes'
+            }
+        },
         { '$unwind': '$author' },
         { '$unwind': { 'path': '$retweets_count' ,'preserveNullAndEmptyArrays': True } },
         { '$unwind': { 'path': '$comments_count' ,'preserveNullAndEmptyArrays': True } },
@@ -1028,7 +1060,9 @@ def search(text):
                 'img_path': { '$ifNull': ['$img_path', None] },
                 'retweets_count': '$retweets_count.count',
                 'comments_count': '$comments_count.count',
-                'likes_count': '$likes_count.count'
+                'likes_count': '$likes_count.count',
+                'retweets': 1,
+                'likes': 1
             }
         }
     ])
@@ -1056,16 +1090,16 @@ def search(text):
 
         # didRetweet
         didRetweet = False
-        for retweet in Retweet.objects(post_id=post['id']):
-            if str(retweet.user_id.id) == get_jwt_identity():
+        for retweet in post['retweets']:
+            if retweet['user_id'] == get_jwt_identity():
                 didRetweet = True
         
         post['didRetweet'] = didRetweet
 
         # didLike
         didLike = False
-        for like in Like.objects(post_id=post['id']):
-            if str(like.user_id.id) == get_jwt_identity():
+        for like in post['likes']:
+            if like['user_id'] == get_jwt_identity():
                 didLike = True
         
         post['didLike'] = didLike
@@ -1080,54 +1114,6 @@ def search(text):
     } for user in User.objects(Q(username__icontains=text) | Q(full_name__icontains=text))]
 
     return { 'users': users, 'posts': posts }, 200
-    # posts = []
-
-    # for post in Post.objects(text__icontains=text).order_by('-id'):
-    #     if post.img_path is not None:
-    #         images_resources = api.resources(type='upload', prefix=post.img_path)['resources']
-    #         images = [image['secure_url'] for image in images_resources]
-    #     else:
-    #         images = []
-        
-    #     didRetweet = False
-    #     for retweet in Retweet.objects(post_id=str(post.pk)):
-    #         if str(retweet.user_id.pk) == get_jwt_identity():
-    #             didRetweet = True
-        
-    #     didLike = False
-    #     for like in Like.objects(post_id=str(post.id)):
-    #         if str(like.user_id.id) == get_jwt_identity():
-    #             didLike = True
-        
-    #     posts.append({
-    #         'id': str(post.pk),
-    #         'author': post.author,
-    #         'text': post.text,
-    #         'date': post.date,
-    #         'images': images,
-    #         'parent': post.parent,
-    #         'retweets_count': Retweet.objects(post_id=str(post.pk)).count(),
-    #         'didRetweet': didRetweet,
-    #         'didLike': didLike,
-    #         'comments_count': Post.objects(parent=str(post.pk)).count(),
-    #         'likes_count': Like.objects(post_id=str(post.id)).count()
-    #     })
-
-    # users = [{
-    #     'id': str(user.pk),
-    #     'full_name': user.full_name,
-    #     'username': user.username,
-    #     'address': user.address,
-    #     'birthday': user.birthday,
-    #     'bio': user.bio,
-    #     'followers': len(user.followers),
-    #     'following': len(user.following)
-    # } for user in User.objects(Q(username__icontains=text) | Q(full_name__icontains=text))]
-
-    # return {
-    #     'posts': posts,
-    #     'users': users
-    # }, 200
 
 
 # like()
