@@ -11,6 +11,7 @@ from models.like import Like
 from mongoengine.queryset.visitor import Q
 from cloudinary import uploader, api
 import time
+from bson.objectid import ObjectId
 
 post_bp = Blueprint('post_bp', __name__)
 
@@ -582,6 +583,14 @@ def create_comment(post_id):
 
     comment_dict = comment_data.next()
 
+    if comment_dict['img_path'] is not None:
+        images_resources = api.resources(type='upload', prefix=comment_dict['img_path'])['resources']
+        images = [image['secure_url'] for image in images_resources]
+    else:
+        images = []
+    
+    comment_dict['images'] = images
+
     if 'retweets_count' not in comment_dict:
         comment_dict['retweets_count'] = 0
     
@@ -663,77 +672,342 @@ def getChildren(comment_parent):
 @post_bp.route('/post/<string:post_id>', methods=['GET'])
 @jwt_required()
 def get_post_info(post_id):
-    post = Post.objects(id=post_id).first()
+    post_data = Post.objects(id=post_id).aggregate([
+        {
+            '$lookup': {
+                'from': 'user', # getting author for post
+                'let': { 'author': '$author' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$author', '$_id'] } } },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'id': { '$toString': '$_id' },
+                            'full_name': 1,
+                            'username': 1
+                        }
+                    }
+                ],
+                'as': 'author' 
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'post', # getting comments
+                'let': { 'id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$id', '$parent'] } } },
+                    {
+                        '$lookup': {
+                            'from': 'user', # getting author for comments
+                            'let': { 'author': '$author' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$author', '$_id'] } } },
+                                {
+                                    '$project': {
+                                        '_id': 0,
+                                        'id': { '$toString': '$_id' },
+                                        'full_name': 1,
+                                        'username': 1
+                                    }
+                                }
+                            ],
+                            'as': 'author'
+                        }
+                    },
+                    {
+                        '$lookup': {
+                            'from': 'retweet', # getting retweets count for comments
+                            'let': { 'post_id': '$_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                { '$count': 'count' }
+                            ],
+                            'as': 'retweets_count'
+                        }
+                    },
+                    {
+                        '$lookup': {
+                            'from': 'post', # getting comments count for comments
+                            'let': { 'id': '$_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$id', '$parent'] } } },
+                                { '$count': 'count' }
+                            ],
+                            'as': 'comments_count'
+                        }
+                    },
+                    {
+                        '$lookup': {
+                            'from': 'like', # getting likes count for comments
+                            'let': { 'post_id': '$_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                { '$count': 'count' }
+                            ],
+                            'as': 'likes_count'
+                        }
+                    },
+                    { '$unwind': '$author' },
+                    { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True } },
+                    { '$unwind': { 'path': '$comments_count', 'preserveNullAndEmptyArrays': True } },
+                    { '$unwind': { 'path': '$likes_count', 'preserveNullAndEmptyArrays': True } },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'id': { '$toString': '$_id' },
+                            'author': 1,
+                            'text': 1,
+                            'date': 1,
+                            'img_path': { '$ifNull': ['$img_path', None] },
+                            'retweets_count': '$retweets_count.count',
+                            'comments_count': '$comments_count.count',
+                            'likes_count': '$likes_count.count',
+                            'isAuthor': { '$cond': { 'if': { '$eq': ['$author.id', get_jwt_identity()] }, 'then': True, 'else': False } }
+                        }
+                    }
+                ],
+                'as': 'children'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'post', # getting parent
+                'let': { 'parent': '$parent' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$parent', '$_id'] } } },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'id': { '$toString': '$_id' }
+                        }
+                    }
+                ],
+                'as': 'parent'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'retweet', # getting retweets count
+                'let': { 'post_id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                    { '$count': 'count' }
+                ],
+                'as': 'retweets_count'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'post', # getting comments count
+                'let': { 'id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$id', '$parent'] } } },
+                    { '$count': 'count' }
+                ],
+                'as': 'comments_count'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'like', # getting likes count
+                'let': { 'post_id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                    { '$count': 'count' }
+                ],
+                'as': 'likes_count'
+            }
+        },
+        { '$unwind': '$author' },
+        { '$unwind': { 'path': '$parent', 'preserveNullAndEmptyArrays': True } },
+        { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True } },
+        { '$unwind': { 'path': '$comments_count', 'preserveNullAndEmptyArrays': True } },
+        { '$unwind': { 'path': '$likes_count', 'preserveNullAndEmptyArrays': True } },
+        {
+            '$project': {
+                '_id': 0,
+                'id': { '$toString': '$_id' },
+                'author': 1,
+                'text': 1,
+                'date': 1,
+                'img_path': { '$ifNull': ['$img_path', None] },
+                'parent': { '$ifNull': ['$parent', None] },
+                'children': 1,
+                'retweets_count': '$retweets_count.count',
+                'comments_count': '$comments_count.count',
+                'likes_count': '$likes_count.count',
+                'isAuthor': { '$cond': { 'if': { '$eq': ['$author.id', get_jwt_identity()] }, 'then': True, 'else': False } }
+            }
+        }
+    ])
 
-    if post.img_path is not None:
-        images_resources = api.resources(type='upload', prefix=post.img_path)['resources']
+    post = post_data.next()
+
+    if 'retweets_count' not in post:
+        post['retweets_count'] = 0
+    
+    if 'comments_count' not in post:
+        post['comments_count'] = 0
+    
+    if 'likes_count' not in post:
+        post['likes_count'] = 0
+    
+    # adding images to post
+    if post['img_path'] is not None:
+        images_resources = api.resources(type='upload', prefix=post['img_path'])['resources']
         images = [image['secure_url'] for image in images_resources]
     else:
         images = []
+    
+    post['images'] = images
 
+    # didRetweet
     didRetweet = False
-    for retweet in Retweet.objects(post_id=str(post.pk)):
-        if str(retweet.user_id.pk) == get_jwt_identity():
+    for retweet in Retweet.objects(post_id=post['id']):
+        if str(retweet.user_id.id) == get_jwt_identity():
             didRetweet = True
     
+    post['didRetweet'] = didRetweet
+
+    # didLike
     didLike = False
-    for like in Like.objects(post_id=str(post.id)):
+    for like in Like.objects(post_id=post['id']):
         if str(like.user_id.id) == get_jwt_identity():
             didLike = True
 
-    comments = []
+    post['didLike'] = didLike
 
-    for comment in Post.objects(parent=post_id):
-        if comment.img_path is not None:
-            comment_resources = api.resources(type='upload', prefix=comment.img_path)['resources']
-            comment_images = [image['secure_url'] for image in comment_resources]
+
+    # children
+    for child in post['children']:
+        if 'retweets_count' not in child:
+            child['retweets_count'] = 0
+        
+        if 'comments_count' not in child:
+            child['comments_count'] = 0
+        
+        if 'likes_count' not in child:
+            child['likes_count'] = 0
+        
+        # adding images to child
+        if child['img_path'] is not None:
+            child_resources = api.resources(type='upload', prefix=child['img_path'])['resources']
+            child_images = [image['secure_url'] for image in child_resources]
         else:
-            comment_images = []
+            child_images = []
         
-        didRetweetComment = False
-        for retweet in Retweet.objects(post_id=str(comment.pk)):
-            if str(retweet.user_id.pk) == get_jwt_identity():
-                didRetweetComment = True
+        child['images'] = child_images
+
+        # didRetweet
+        didRetweetChild = False
+        for retweet in Retweet.objects(post_id=child['id']):
+            if str(retweet.user_id.id) == get_jwt_identity():
+                didRetweetChild = True
         
-        didLikeComment = False
-        for like in Like.objects(post_id=str(comment.id)):
+        child['didRetweet'] = didRetweetChild
+
+        # didLike
+        didLike = False
+        for like in Like.objects(post_id=child['id']):
             if str(like.user_id.id) == get_jwt_identity():
-                didLikeComment = True
-
-        isAuthorComment = True if get_jwt_identity() == str(comment.author.id) else False
-
-        comments.append({
-            'id': str(comment.pk),
-            'author': comment.author,
-            'text': comment.text,
-            'date': comment.date,
-            'images': comment_images,
-            'parent': comment.parent,
-            'retweets_count': Retweet.objects(post_id=str(comment.pk)).count(),
-            'didRetweet': didRetweetComment,
-            'didLike': didLikeComment,
-            'comments_count': Post.objects(parent=str(comment.pk)).count(),
-            'likes_count': Like.objects(post_id=str(comment.id)).count(),
-            'children': getChildren(str(comment.pk)),
-            'isAuthor': isAuthorComment
-        })
-
-    isAuthor = True if get_jwt_identity() == str(post.author.id) else False
+                didLike = True
         
-    return {
-        'id': str(post.pk),
-        'author': post.author,
-        'text': post.text,
-        'date': post.date,
-        'images': images,
-        'retweets_count': Retweet.objects(post_id=post_id).count(),
-        'didRetweet': didRetweet,
-        'didLike': didLike,
-        'comments_count': Post.objects(parent=post_id).count(),
-        'likes_count': Like.objects(post_id=post_id).count(),
-        'children': comments,
-        'isAuthor': isAuthor
-    }
+        child['didLike'] = didLike
+
+    pp = pprint.PrettyPrinter(sort_dicts=False)
+    pp.pprint(post)
+
+    # return {
+    #     'id': post['id'],
+    #     'author': post['author'],
+    #     'text': post['text'],
+    #     'date': post['date'],
+    #     'images': post['images'],
+    #     'children': post['children'],
+    #     'isAuthor': post['isAuthor'],
+    #     'retweets_count': post['retweets_count'],
+    #     'comments_count': post['comments_count'],
+    #     'likes_count': post['likes_count'],
+    #     'didRetweet': post['didRetweet'],
+    #     'didLike': post['didLike']
+    # }
+
+    return post, 200
+
+
+
+    # post = Post.objects(id=post_id).first()
+
+    # if post.img_path is not None:
+    #     images_resources = api.resources(type='upload', prefix=post.img_path)['resources']
+    #     images = [image['secure_url'] for image in images_resources]
+    # else:
+    #     images = []
+
+    # didRetweet = False
+    # for retweet in Retweet.objects(post_id=str(post.pk)):
+    #     if str(retweet.user_id.pk) == get_jwt_identity():
+    #         didRetweet = True
+    
+    # didLike = False
+    # for like in Like.objects(post_id=str(post.id)):
+    #     if str(like.user_id.id) == get_jwt_identity():
+    #         didLike = True
+
+    # comments = []
+
+    # for comment in Post.objects(parent=post_id):
+    #     if comment.img_path is not None:
+    #         comment_resources = api.resources(type='upload', prefix=comment.img_path)['resources']
+    #         comment_images = [image['secure_url'] for image in comment_resources]
+    #     else:
+    #         comment_images = []
+        
+    #     didRetweetComment = False
+    #     for retweet in Retweet.objects(post_id=str(comment.pk)):
+    #         if str(retweet.user_id.pk) == get_jwt_identity():
+    #             didRetweetComment = True
+        
+    #     didLikeComment = False
+    #     for like in Like.objects(post_id=str(comment.id)):
+    #         if str(like.user_id.id) == get_jwt_identity():
+    #             didLikeComment = True
+
+    #     isAuthorComment = True if get_jwt_identity() == str(comment.author.id) else False
+
+    #     comments.append({
+    #         'id': str(comment.pk),
+    #         'author': comment.author,
+    #         'text': comment.text,
+    #         'date': comment.date,
+    #         'images': comment_images,
+    #         'parent': comment.parent,
+    #         'retweets_count': Retweet.objects(post_id=str(comment.pk)).count(),
+    #         'didRetweet': didRetweetComment,
+    #         'didLike': didLikeComment,
+    #         'comments_count': Post.objects(parent=str(comment.pk)).count(),
+    #         'likes_count': Like.objects(post_id=str(comment.id)).count(),
+    #         'children': getChildren(str(comment.pk)),
+    #         'isAuthor': isAuthorComment
+    #     })
+
+    # isAuthor = True if get_jwt_identity() == str(post.author.id) else False
+        
+    # return {
+    #     'id': str(post.pk),
+    #     'author': post.author,
+    #     'text': post.text,
+    #     'date': post.date,
+    #     'images': images,
+    #     'retweets_count': Retweet.objects(post_id=post_id).count(),
+    #     'didRetweet': didRetweet,
+    #     'didLike': didLike,
+    #     'comments_count': Post.objects(parent=post_id).count(),
+    #     'likes_count': Like.objects(post_id=post_id).count(),
+    #     'children': comments,
+    #     'isAuthor': isAuthor
+    # }
 
 
 # retweet()
