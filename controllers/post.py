@@ -1,7 +1,5 @@
 # post.py
 
-from os import truncate
-import pprint
 from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models.user import User
@@ -11,7 +9,6 @@ from models.like import Like
 from mongoengine.queryset.visitor import Q
 from cloudinary import uploader, api
 import time
-from bson.objectid import ObjectId
 
 post_bp = Blueprint('post_bp', __name__)
 
@@ -87,6 +84,38 @@ def create_post():
                 'as': 'likes_count'
             }
         },
+        {
+            '$lookup': {
+                'from': 'retweet', # getting retweets for didRetweet
+                'let': { 'post_id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'user_id': { '$toString': '$user_id' }
+                        }
+                    }
+                ],
+                'as': 'retweets'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'like', # getting likes for didLike
+                'let': { 'post_id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'user_id': { '$toString': '$user_id' }
+                        }
+                    }
+                ],
+                'as': 'likes'
+            }
+        },
         { '$unwind': '$author' },
         { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True } },
         { '$unwind': { 'path': '$comments_count', 'preserveNullAndEmptyArrays': True } },
@@ -101,7 +130,9 @@ def create_post():
                 'img_path': { '$ifNull': ['$img_path', None] },
                 'retweets_count': '$retweets_count.count',
                 'comments_count': '$comments_count.count',
-                'likes_count': '$likes_count.count'
+                'likes_count': '$likes_count.count',
+                'retweets': 1,
+                'likes': 1
             }
         }
     ])
@@ -127,16 +158,16 @@ def create_post():
     
     # didRetweet
     didRetweet = False
-    for retweet in Retweet.objects(post_id=post_dict['id']):
-        if str(retweet.user_id.id) == get_jwt_identity():
+    for retweet in post_dict['retweets']:
+        if retweet['user_id'] == get_jwt_identity():
             didRetweet = True
     
     post_dict['didRetweet'] = didRetweet
 
     # didLike
     didLike = False
-    for like in Like.objects(post_id=post_dict['id']):
-        if str(like.user_id.id) == get_jwt_identity():
+    for like in post_dict['likes']:
+        if like['user_id'] == get_jwt_identity():
             didLike = True
     
     post_dict['didLike'] = didLike
@@ -614,6 +645,38 @@ def create_comment(post_id):
                 'as': 'likes_count'
             }
         },
+        {
+            '$lookup': {
+                'from': 'retweet', # getting retweets for didRetweet
+                'let': { 'post_id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'user_id': { '$toString': '$user_id' }
+                        }
+                    }
+                ],
+                'as': 'retweets'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'like', # getting likes for didLike
+                'let': { 'post_id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'user_id': { '$toString': '$user_id' }
+                        }
+                    }
+                ],
+                'as': 'likes'
+            }
+        },
         { '$unwind': '$author' },
         { '$unwind': '$parent' },
         { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True } },
@@ -630,7 +693,9 @@ def create_comment(post_id):
                 'parent': { '$ifNull': ['$parent', None] },
                 'retweets_count': '$retweets_count.count',
                 'comments_count': '$comments_count.count',
-                'likes_count': '$likes_count.count'
+                'likes_count': '$likes_count.count',
+                'retweets': 1,
+                'likes': 1
             }
         }
     ])
@@ -656,16 +721,16 @@ def create_comment(post_id):
     
     # didRetweet
     didRetweet = False
-    for retweet in Retweet.objects(post_id=comment_dict['id']):
-        if str(retweet.user_id.id) == get_jwt_identity():
+    for retweet in comment_dict['retweets']:
+        if retweet['user_id'] == get_jwt_identity():
             didRetweet = True
     
     comment_dict['didRetweet'] = didRetweet
 
     # didLike
     didLike = False
-    for like in Like.objects(post_id=comment_dict['id']):
-        if str(like.user_id.id) == get_jwt_identity():
+    for like in comment_dict['likes']:
+        if like['user_id'] == get_jwt_identity():
             didLike = True
     
     comment_dict['didLike'] = didLike

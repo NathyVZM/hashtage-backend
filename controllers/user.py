@@ -155,6 +155,38 @@ def get_user_posts(user_id):
                             'as': 'likes_count'
                         }
                     },
+                    {
+                        '$lookup': {
+                            'from': 'retweet', # getting retweets for didRetweet
+                            'let': { 'post_id': '$_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                {
+                                    '$project': {
+                                        '_id': 0,
+                                        'user_id': { '$toString': '$user_id' }
+                                    }
+                                }
+                            ],
+                            'as': 'retweets'
+                        }
+                    },
+                    {
+                        '$lookup': {
+                            'from': 'like', # getting likes for didLike
+                            'let': { 'post_id': '$_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                {
+                                    '$project': {
+                                        '_id': 0,
+                                        'user_id': { '$toString': '$user_id' }
+                                    }
+                                }
+                            ],
+                            'as': 'likes'
+                        }
+                    },
                     { '$unwind': { 'path': '$parent', 'preserveNullAndEmptyArrays': True } },
                     { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True } },
                     { '$unwind': { 'path': '$comments_count', 'preserveNullAndEmptyArrays': True } },
@@ -169,7 +201,9 @@ def get_user_posts(user_id):
                             'parent': { '$ifNull': ['$parent', None] },
                             'retweets_count': '$retweets_count.count',
                             'comments_count': '$comments_count.count',
-                            'likes_count': '$likes_count.count'
+                            'likes_count': '$likes_count.count',
+                            'retweets': 1,
+                            'likes': 1
                         }
                     }
                 ],
@@ -240,6 +274,38 @@ def get_user_posts(user_id):
                                         'as': 'likes_count'
                                     }
                                 },
+                                {
+                                    '$lookup': {
+                                        'from': 'retweet', # getting retweets for didRetweet
+                                        'let': { 'post_id': '$_id' },
+                                        'pipeline': [
+                                            { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                            {
+                                                '$project': {
+                                                    '_id': 0,
+                                                    'user_id': { '$toString': '$user_id' }
+                                                }
+                                            }
+                                        ],
+                                        'as': 'retweets'
+                                    }
+                                },
+                                {
+                                    '$lookup': {
+                                        'from': 'like', # getting likes for didLike
+                                        'let': { 'post_id': '$_id' },
+                                        'pipeline': [
+                                            { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                            {
+                                                '$project': {
+                                                    '_id': 0,
+                                                    'user_id': { '$toString': '$user_id' }
+                                                }
+                                            }
+                                        ],
+                                        'as': 'likes'
+                                    }
+                                },
                                 { '$unwind': '$author' },
                                 { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True }},
                                 { '$unwind': { 'path': '$comments_count', 'preserveNullAndEmptyArrays': True }},
@@ -254,7 +320,9 @@ def get_user_posts(user_id):
                                         'img_path': { '$ifNull': ['$img_path', None] },
                                         'retweets_count': '$retweets_count.count',
                                         'comments_count': '$comments_count.count',
-                                        'likes_count': '$likes_count.count'
+                                        'likes_count': '$likes_count.count',
+                                        'retweets': 1,
+                                        'likes': 1
                                     }
                                 }
                             ],
@@ -344,19 +412,22 @@ def get_user_posts(user_id):
         
         # didRetweet
         didRetweet = False
-        for retweet in Retweet.objects(post_id=post['id']):
-            if str(retweet.user_id.id) == get_jwt_identity():
+        for retweet in post['retweets']:
+            if retweet['user_id'] == get_jwt_identity():
                 didRetweet = True
         
         post['didRetweet'] = didRetweet
 
         # didLike
         didLike = False
-        for like in Like.objects(post_id=post['id']):
-            if str(like.user_id.id) == get_jwt_identity():
+        for like in post['likes']:
+            if like['user_id'] == get_jwt_identity():
                 didLike = True
         
         post['didLike'] = didLike
+
+        del post['retweets']
+        del post['likes']
 
 
     # RETWEET
@@ -383,19 +454,22 @@ def get_user_posts(user_id):
         
         # didRetweet
         didRetweetPost = False
-        for r in Retweet.objects(post_id=retweet['post_id']['id']):
-            if str(r.user_id.id) == get_jwt_identity():
+        for r in retweet['post_id']['retweets']:
+            if r['user_id'] == get_jwt_identity():
                 didRetweetPost = True
         
         retweet['post_id']['didRetweet'] = didRetweetPost
 
         # didLike
         didLikePost = False
-        for like in Like.objects(post_id=retweet['post_id']['id']):
-            if str(like.user_id.id) == get_jwt_identity():
+        for like in retweet['post_id']['likes']:
+            if like['user_id'] == get_jwt_identity():
                 didLikePost = True
         
         retweet['post_id']['didLike'] = didLikePost
+
+        del retweet['post_id']['retweets']
+        del retweet['post_id']['likes']
 
     return {
         'user': user,
@@ -467,6 +541,38 @@ def get_user_likes(user_id):
                             'as': 'likes_count'
                         }
                     },
+                    {
+                        '$lookup': {
+                            'from': 'retweet', # getting retweets for didRetweet
+                            'let': { 'post_id': '$_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                {
+                                    '$project': {
+                                        '_id': 0,
+                                        'user_id': { '$toString': '$user_id' }
+                                    }
+                                }
+                            ],
+                            'as': 'retweets'
+                        }
+                    },
+                    {
+                        '$lookup': {
+                            'from': 'like', # getting likes for didLike
+                            'let': { 'post_id': '$_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                {
+                                    '$project': {
+                                        '_id': 0,
+                                        'user_id': { '$toString': '$user_id' }
+                                    }
+                                }
+                            ],
+                            'as': 'likes'
+                        }
+                    },
                     { '$unwind': '$author' },
                     { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True } },
                     { '$unwind': { 'path': '$comments_count', 'preserveNullAndEmptyArrays': True } },
@@ -481,7 +587,9 @@ def get_user_likes(user_id):
                             'img_path': { '$ifNull': ['$img_path', None] },
                             'retweets_count': '$retweets_count.count',
                             'comments_count': '$comments_count.count',
-                            'likes_count': '$likes_count.count'
+                            'likes_count': '$likes_count.count',
+                            'retweets': 1,
+                            'likes': 1
                         }
                     }
                 ],
@@ -512,16 +620,16 @@ def get_user_likes(user_id):
 
         # didRetweet
         didRetweet = False
-        for retweet in Retweet.objects(post_id=like['post_id']['id']):
-            if str(retweet.user_id.id) == get_jwt_identity():
+        for retweet in like['post_id']['retweets']:
+            if retweet['user_id'] == get_jwt_identity():
                 didRetweet = True
         
         like['post_id']['didRetweet'] = didRetweet
 
         # didLike
         didLike = False
-        for l in Like.objects(post_id=like['post_id']['id']):
-            if str(l.user_id.id) == get_jwt_identity():
+        for l in like['post_id']['likes']:
+            if l['user_id'] == get_jwt_identity():
                 didLike = True
         
         like['post_id']['didLike'] = didLike
@@ -537,6 +645,8 @@ def get_user_likes(user_id):
             like['post_id']['likes_count'] = 0
         
         likes.append(like)
+        del like['post_id']['retweets']
+        del like['post_id']['likes']
     
     return { 'likes': likes }, 200
 
