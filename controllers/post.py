@@ -339,6 +339,38 @@ def get_all_posts():
                                         'as': 'likes_count'
                                     }
                                 },
+                                {
+                                    '$lookup': {
+                                        'from': 'retweet',
+                                        'let': { 'post_id': '$_id' },
+                                        'pipeline': [
+                                            { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                            {
+                                                '$project': {
+                                                    '_id': 0,
+                                                    'user_id': { '$toString': '$user_id' }
+                                                }
+                                            }
+                                        ],
+                                        'as': 'retweets'
+                                    }
+                                },
+                                {
+                                    '$lookup': {
+                                        'from': 'like',
+                                        'let': { 'post_id': '$_id' },
+                                        'pipeline': [
+                                            { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                            {
+                                                '$project': {
+                                                    '_id': 0,
+                                                    'user_id': { '$toString': '$user_id' }
+                                                }
+                                            }
+                                        ],
+                                        'as': 'likes'
+                                    }
+                                },
                                 { '$unwind': '$author' },
                                 { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True } },
                                 { '$unwind': { 'path': '$comments_count', 'preserveNullAndEmptyArrays': True } },
@@ -353,7 +385,9 @@ def get_all_posts():
                                         'img_path': { '$ifNull': ['$img_path', None] },
                                         'retweets_count': '$retweets_count.count',
                                         'comments_count': '$comments_count.count',
-                                        'likes_count': '$likes_count.count'
+                                        'likes_count': '$likes_count.count',
+                                        'retweets': 1,
+                                        'likes': 1
                                     }
                                 }
                             ],
@@ -375,6 +409,22 @@ def get_all_posts():
             }
         },
         {
+            '$lookup': {
+                'from': 'like',
+                'let': { 'post_id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'user_id': { '$toString': '$user_id' }
+                        }
+                    }
+                ],
+                'as': 'likes'
+            }
+        },
+        {
             '$project': {
                 '_id': 0,
                 'id': { '$toString': '$_id' },
@@ -385,7 +435,8 @@ def get_all_posts():
                 'retweets_count': '$retweets_count.count',
                 'comments_count': '$comments_count.count',
                 'likes_count': '$likes_count.count',
-                'retweets': 1
+                'retweets': 1,
+                'likes': 1
             }
         }
     ])
@@ -405,16 +456,16 @@ def get_all_posts():
 
             # didRetweet
             didRetweetPost = False
-            for r in Retweet.objects(post_id=retweet['post_id']['id']):
-                if str(r.user_id.id) == get_jwt_identity():
+            for r in retweet['post_id']['retweets']:
+                if r['user_id'] == get_jwt_identity():
                     didRetweetPost = True
             
             retweet['post_id']['didRetweet'] = didRetweetPost
 
             # didLike
             didLikePost = False
-            for like in Like.objects(post_id=retweet['post_id']['id']):
-                if str(like.user_id.id) == get_jwt_identity():
+            for like in retweet['post_id']['likes']:
+                if like['user_id'] == get_jwt_identity():
                     didLikePost = True
             
             retweet['post_id']['didLike'] = didLikePost
@@ -429,6 +480,8 @@ def get_all_posts():
                 retweet['post_id']['likes_count'] = 0
 
             posts.append(retweet)
+            del retweet['post_id']['retweets']
+            del retweet['post_id']['likes']
         # end of loop of retweets
 
         # getting images for post
@@ -442,16 +495,16 @@ def get_all_posts():
 
         # didRetweet
         didRetweet = False
-        for r in Retweet.objects(post_id=post['id']):
-            if str(r.user_id.id) == get_jwt_identity():
+        for r in post['retweets']:
+            if r['user_id']['id'] == get_jwt_identity():
                 didRetweet = True
         
         post['didRetweet'] = didRetweet
 
         # didLike
         didLike = False
-        for like in Like.objects(post_id=post['id']):
-            if str(like.user_id.id) == get_jwt_identity():
+        for like in post['likes']:
+            if like['user_id'] == get_jwt_identity():
                 didLike = True
 
         post['didLike'] = didLike
@@ -465,8 +518,9 @@ def get_all_posts():
         if 'likes_count' not in post:
             post['likes_count'] = 0
         
-        # delete retweets field from post dictionary
+        # delete retweets and likes fields from post dictionary
         del post['retweets']
+        del post['likes']
 
         posts.append(post)
         
@@ -620,53 +674,7 @@ def create_comment(post_id):
         'created': True,
         'comment': comment_dict
     }, 201
-
-
-# FUNCTION getChildren()
-# def getChildren(comment_parent):
-    children = []
-
-    for comment in Post.objects(parent=comment_parent):
-        if comment.img_path is not None:
-            images_resources = api.resources(type='upload', prefix=comment.img_path)['resources']
-            images = [image['secure_url'] for image in images_resources]
-        else:
-            images = []
-        
-        didRetweet = False
-        for retweet in Retweet.objects(post_id=str(comment.pk)):
-            if str(retweet.user_id.pk) == get_jwt_identity():
-                didRetweet = True
-
-        didLike = False
-        for like in Like.objects(post_id=str(comment.id)):
-            if str(like.user_id.id) == get_jwt_identity():
-                didLike = True
-        
-        isAuthor = True if str(comment.author.id) == get_jwt_identity() else False
-        
-        children.append({
-            'id': str(comment.pk),
-            'author': {
-                'id': str(comment.author.id),
-                'full_name': comment.author.full_name,
-                'username': comment.author.username
-            },
-            'text': comment.text,
-            'date': comment.date,
-            'images': images,
-            'parent': str(comment.parent.id),
-            'retweets_count': Retweet.objects(post_id=str(comment.pk)).count(),
-            'didRetweet': didRetweet,
-            'didLike': didLike,
-            'comments_count': Post.objects(parent=str(comment.pk)).count(),
-            'likes_count': Like.objects(post_id=str(comment.id)).count(),
-            'children': getChildren(str(comment.pk)),
-            'isAuthor': isAuthor
-        })
-    
-    return children
-    
+   
 
 # get_post_info()
 @post_bp.route('/post/<string:post_id>', methods=['GET'])
