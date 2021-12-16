@@ -53,7 +53,8 @@ def login():
         return {
             'login': True,
             'accessToken': accessToken,
-            'refreshToken': refreshToken
+            'refreshToken': refreshToken,
+            'following': len(user.following)
         }, 200
     
     else:
@@ -67,7 +68,18 @@ def refresh_token():
     id_jwt = get_jwt_identity()
     accessToken = create_access_token(identity=id_jwt)
 
-    return { 'accessToken': accessToken }, 200
+    user_data = User.objects(id=get_jwt_identity()).aggregate([
+        {
+            '$project': {
+                '_id': 0,
+                'following': { '$size': '$following' }
+            }
+        }
+    ])
+
+    user = user_data.next()
+
+    return { 'accessToken': accessToken, 'following': user['following'] }, 200
 
 
 # get_user_posts()
