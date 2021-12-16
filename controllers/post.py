@@ -9,7 +9,6 @@ from models.like import Like
 from mongoengine.queryset.visitor import Q
 from cloudinary import uploader, api
 import time
-import pprint
 from bson.objectid import ObjectId
 
 post_bp = Blueprint('post_bp', __name__)
@@ -1658,93 +1657,7 @@ def timeline():
     
     posts_sorted = sorted(posts, key = lambda i:ObjectId(i['id']).generation_time, reverse=True)
 
-    pp = pprint.PrettyPrinter(sort_dicts=False)
-    pp.pprint(user_timeline)
-
     return {
         'get': True,
         'posts': posts_sorted
     }, 200
-    # user = User.objects(id=get_jwt_identity()).first()
-
-    # posts = []
-
-    # for following in user.following:
-
-    #     for post in Post.objects(author=str(following.id), parent=None).order_by('-id'):
-    #         if post.img_path is not None:
-    #             images_resources = api.resources(type='upload', prefix=post.img_path)['resources']
-    #             images = [image['secure_url'] for image in images_resources]
-    #         else:
-    #             images = []
-
-    #         didRetweet = False
-    #         for retweet in Retweet.objects(post_id=str(post.id)):
-    #             if str(retweet.user_id.id) == get_jwt_identity():
-    #                 didRetweet = True
-            
-    #         didLike = False
-    #         for like in Like.objects(post_id=str(post.id)):
-    #             if str(like.user_id.id) == get_jwt_identity():
-    #                 didLike = True
-                
-    #         isAuthor = True if str(post.author.id) == get_jwt_identity() else False
-
-    #         posts.append({
-    #             'id': str(post.id),
-    #             'author': post.author,
-    #             'text': post.text,
-    #             'date': post.date,
-    #             'images': images,
-    #             'retweets_count': Retweet.objects(post_id=str(post.id)).count(),
-    #             'comments_count': Post.objects(parent=str(post.id)).count(),
-    #             'likes_count': Like.objects(post_id=str(post.id)).count(),
-    #             'didRetweet': didRetweet,
-    #             'didLike': didLike,
-    #             'isAuthor': isAuthor
-    #         })
-    #     for retweet in Retweet.objects(user_id=str(following.id)).order_by('-id'):
-    #         if retweet.post_id.img_path is not None:
-    #             retweet_resources = api.resources(type='upload', prefix=retweet.post_id.img_path)['resources']
-    #             retweet_images = [image['secure_url'] for image in retweet_resources]
-    #         else:
-    #             retweet_images = []
-
-    #         didRetweetPost = False
-    #         for r in Retweet.objects(post_id=str(retweet.post_id.id)):
-    #             if str(r.user_id.id) == get_jwt_identity():
-    #                 didRetweetPost = True
-            
-    #         didLikePost = False
-    #         for like in Like.objects(post_id=str(retweet.post_id.id)):
-    #             if str(like.user_id.id) == get_jwt_identity():
-    #                 didLikePost = True
-            
-    #         isAuthorPost = True if str(retweet.post_id.author.id) == get_jwt_identity() else False
-
-    #         posts.append({
-    #             'id': str(retweet.id),
-    #             'post_id': {
-    #                 'id': str(retweet.post_id.id),
-    #                 'author': retweet.post_id.author,
-    #                 'text': retweet.post_id.text,
-    #                 'date': retweet.post_id.date,
-    #                 'images': retweet_images,
-    #                 'retweets_count': Retweet.objects(post_id=str(retweet.post_id.id)).count(),
-    #                 'comments_count': Post.objects(parent=str(retweet.post_id.id)).count(),
-    #                 'likes_count': Like.objects(post_id=str(retweet.post_id.id)).count(),
-    #                 'didRetweet': didRetweetPost,
-    #                 'didLike': didLikePost,
-    #                 'isAuthor': isAuthorPost
-    #             },
-    #             'user_id': {
-    #                 'id': str(retweet.user_id.id),
-    #                 'full_name': retweet.user_id.full_name,
-    #                 'username': retweet.user_id.username
-    #             }
-    #         })
-
-    # return {
-    #     'get': True,
-    #     'posts': posts
-    # }, 200
