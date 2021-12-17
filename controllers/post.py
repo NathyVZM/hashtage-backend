@@ -1622,7 +1622,7 @@ def timeline():
             
             retweet['post_id']['images'] = retweet_images
 
-            retweet['user_id'] = { 'id': user['id'], 'full_name': user['full_name'], 'username': user['username'] },
+            retweet['user_id'] = { 'id': user['id'], 'full_name': user['full_name'], 'username': user['username'] }
 
             if 'retweets_count' not in retweet['post_id']:
                 retweet['post_id']['retweets_count'] = 0
