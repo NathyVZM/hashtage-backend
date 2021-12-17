@@ -10,6 +10,7 @@ from mongoengine.queryset.visitor import Q
 from cloudinary import uploader, api
 import time
 from bson.objectid import ObjectId
+import pprint
 
 post_bp = Blueprint('post_bp', __name__)
 
@@ -1310,10 +1311,10 @@ def timeline():
     user_timeline_data = User.objects(id=get_jwt_identity()).aggregate([
         {
             '$lookup': {
-                'from': 'user', # getting user following
+                'from': 'user',
                 'let': { 'following': '$following' },
                 'pipeline': [
-                    { '$match': { '$expr': { '$in': [ '$_id', { '$ifNull': ['$$following', [] ]}] } } },
+                    { '$match': { '$expr': { '$in': ['$_id', { '$ifNull': ['$$following', []] }] } } },
                     {
                         '$lookup': {
                             'from': 'post', # getting posts for following
@@ -1322,7 +1323,7 @@ def timeline():
                                 { '$match': { '$expr': { '$and': [
                                     { '$eq': ['$$id', '$author'] },
                                     { '$eq': [{ '$ifNull': ['$parent', None] }, None] }
-                                ] } } },
+                                ]} } },
                                 { '$sort': { '_id': -1 } },
                                 {
                                     '$lookup': {
@@ -1389,9 +1390,9 @@ def timeline():
                                         'as': 'likes'
                                     }
                                 },
-                                { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True }},
-                                { '$unwind': { 'path': '$comments_count', 'preserveNullAndEmptyArrays': True }},
-                                { '$unwind': { 'path': '$likes_count', 'preserveNullAndEmptyArrays': True }},
+                                { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True } },
+                                { '$unwind': { 'path': '$comments_count', 'preserveNullAndEmptyArrays': True } },
+                                { '$unwind': { 'path': '$likes_count', 'preserveNullAndEmptyArrays': True } },
                                 {
                                     '$project': {
                                         '_id': 0,
@@ -1419,7 +1420,7 @@ def timeline():
                                 { '$sort': { '_id': -1 } },
                                 {
                                     '$lookup': {
-                                        'from': 'post', # getting post for retweet
+                                        'from': 'post', # getting post for retweets
                                         'let': { 'post_id': '$post_id' },
                                         'pipeline': [
                                             { '$match': { '$expr': { '$and': [
@@ -1435,7 +1436,7 @@ def timeline():
                                                         {
                                                             '$project': {
                                                                 '_id': 0,
-                                                                'id': { '$toString': '$_id' },
+                                                                'id': { '$toString': '$_id'},
                                                                 'full_name': 1,
                                                                 'username': 1
                                                             }
@@ -1474,7 +1475,7 @@ def timeline():
                                                         { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
                                                         { '$count': 'count' }
                                                     ],
-                                                    'as': 'likes_count' 
+                                                    'as': 'likes_count'
                                                 }
                                             },
                                             {
@@ -1525,7 +1526,7 @@ def timeline():
                                                     'comments_count': '$comments_count.count',
                                                     'likes_count': '$likes_count.count',
                                                     'retweets': 1,
-                                                    'likes': 1
+                                                    'likes': 1,
                                                 }
                                             }
                                         ],
@@ -1559,9 +1560,244 @@ def timeline():
             }
         },
         {
+            '$lookup': {
+                'from': 'post', # getting user logued posts
+                'let': { 'id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$and': [
+                        { '$eq': ['$$id', '$author'] },
+                        { '$eq': [{ '$ifNull': ['$parent', None] }, None]}
+                    ] } } },
+                    { '$sort': { '_id': -1 } },
+                    {
+                        '$lookup': {
+                            'from': 'retweet', # getting retweets count
+                            'let': { 'post_id': '$_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                { '$count': 'count' }
+                            ],
+                            'as': 'retweets_count'
+                        }
+                    },
+                    {
+                        '$lookup': {
+                            'from': 'post',
+                            'let': { 'id': '$_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$id', '$parent'] } } },
+                                { '$count': 'count' }
+                            ],
+                            'as': 'comments_count'
+                        }
+                    },
+                    {
+                        '$lookup': {
+                            'from': 'like', # getting retweets count
+                            'let': { 'post_id': '$_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                { '$count': 'count' }
+                            ],
+                            'as': 'likes_count'
+                        }
+                    },
+                    {
+                        '$lookup': {
+                            'from': 'retweet', # getting retweets for didRetweet
+                            'let': { 'post_id': '$_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                {
+                                    '$project': {
+                                        '_id': 0,
+                                        'user_id': { '$toString': '$user_id' }
+                                    }
+                                }
+                            ],
+                            'as': 'retweets'
+                        }
+                    },
+                    {
+                        '$lookup': {
+                            'from': 'like', # getting likes for didLike
+                            'let': { 'post_id': '$_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                {
+                                    '$project': {
+                                        '_id': 0,
+                                        'user_id': { '$toString': '$user_id' }
+                                    }
+                                }
+                            ],
+                            'as': 'likes'
+                        }
+                    },
+                    { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True } },
+                    { '$unwind': { 'path': '$comments_count', 'preserveNullAndEmptyArrays': True } },
+                    { '$unwind': { 'path': '$likes_count', 'preserveNullAndEmptyArrays': True } },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'id': { '$toString': '$_id' },
+                            'text': 1,
+                            'date': 1,
+                            'img_path': { '$ifNull': ['$img_path', None] },
+                            'retweets_count': '$retweets_count.count',
+                            'comments_count': '$comments_count.count',
+                            'likes_count': '$likes_count.count',
+                            'retweets': 1,
+                            'likes': 1
+                        }
+                    }
+                ],
+                'as': 'posts'
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'retweet', # getting retweets for user logued
+                'let': { 'id': '$_id' },
+                'pipeline': [
+                    { '$match': { '$expr': { '$eq': ['$$id', '$user_id'] } } },
+                    { '$sort': { '_id': -1 } },
+                    {
+                        '$lookup': {
+                            'from': 'post',
+                            'let': { 'post_id': '$post_id' },
+                            'pipeline': [
+                                { '$match': { '$expr': { '$and': [
+                                    { '$eq': ['$$post_id', '$_id'] },
+                                    { '$eq': [{ '$ifNull': ['$parent', None] }, None]}
+                                ] } } },
+                                {
+                                    '$lookup': {
+                                        'from': 'user',
+                                        'let': { 'author': '$author' },
+                                        'pipeline': [
+                                            { '$match': { '$expr': { '$eq': ['$$author', '$_id'] } } },
+                                            {
+                                                '$project': {
+                                                    '_id': 0,
+                                                    'id': { '$toString': '$_id' },
+                                                    'full_name': 1,
+                                                    'username': 1
+                                                }
+                                            }
+                                        ],
+                                        'as': 'author'
+                                    }
+                                },
+                                {
+                                    '$lookup': {
+                                        'from': 'retweet', # getting retweets count
+                                        'let': { 'post_id': '$_id' },
+                                        'pipeline': [
+                                            { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                            { '$count': 'count' }
+                                        ],
+                                        'as': 'retweets_count'
+                                    }
+                                },
+                                {
+                                    '$lookup': {
+                                        'from': 'post',
+                                        'let': { 'id': '$_id' },
+                                        'pipeline': [
+                                            { '$match': { '$expr': { '$eq': ['$$id', '$parent'] } } },
+                                            { '$count': 'count' }
+                                        ],
+                                        'as': 'comments_count'
+                                    }
+                                },
+                                {
+                                    '$lookup': {
+                                        'from': 'like', # getting retweets count
+                                        'let': { 'post_id': '$_id' },
+                                        'pipeline': [
+                                            { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                            { '$count': 'count' }
+                                        ],
+                                        'as': 'likes_count'
+                                    }
+                                },
+                                {
+                                    '$lookup': {
+                                        'from': 'retweet', # getting retweets for didRetweet
+                                        'let': { 'post_id': '$_id' },
+                                        'pipeline': [
+                                            { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                            {
+                                                '$project': {
+                                                    '_id': 0,
+                                                    'user_id': { '$toString': '$user_id' }
+                                                }
+                                            }
+                                        ],
+                                        'as': 'retweets'
+                                    }
+                                },
+                                {
+                                    '$lookup': {
+                                        'from': 'like', # getting likes for didLike
+                                        'let': { 'post_id': '$_id' },
+                                        'pipeline': [
+                                            { '$match': { '$expr': { '$eq': ['$$post_id', '$post_id'] } } },
+                                            {
+                                                '$project': {
+                                                    '_id': 0,
+                                                    'user_id': { '$toString': '$user_id' }
+                                                }
+                                            }
+                                        ],
+                                        'as': 'likes'
+                                    }
+                                },
+                                { '$unwind': '$author' },
+                                { '$unwind': { 'path': '$retweets_count', 'preserveNullAndEmptyArrays': True } },
+                                { '$unwind': { 'path': '$comments_count', 'preserveNullAndEmptyArrays': True } },
+                                { '$unwind': { 'path': '$likes_count', 'preserveNullAndEmptyArrays': True } },
+                                {
+                                    '$project': {
+                                        '_id': 0,
+                                        'id': { '$toString': '$_id' },
+                                        'author': 1,
+                                        'text': 1,
+                                        'date': 1,
+                                        'img_path': { '$ifNull': ['$img_path', None] },
+                                        'retweets_count': '$retweets_count.count',
+                                        'comments_count': '$comments_count.count',
+                                        'likes_count': '$likes_count.count',
+                                        'retweets': 1,
+                                        'likes': 1
+                                    }
+                                }
+                            ],
+                            'as': 'post_id'
+                        }
+                    },
+                    { '$unwind': '$post_id' },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'id': { '$toString': '$_id' },
+                            'post_id': 1
+                        }
+                    }
+                ],
+                'as': 'retweets'
+            }
+        },
+        {
             '$project': {
                 '_id': 0,
-                'timeline': 1
+                'id': { '$toString': '$_id' },
+                'full_name': 1,
+                'username': 1,
+                'timeline': 1,
+                'posts': 1,
+                'retweets': 1
             }
         }
     ])
@@ -1571,8 +1807,8 @@ def timeline():
     user_timeline = user_timeline_data.next()
 
     for user in user_timeline['timeline']:
-        for post in user['posts']: # POST
-            # adding images to post dictionary
+        for post in user['posts']:
+            # adding images to post
             if post['img_path'] is not None:
                 images_resources = api.resources(type='upload', prefix=post['img_path'])['resources']
                 images = [image['secure_url'] for image in images_resources]
@@ -1581,7 +1817,9 @@ def timeline():
             
             post['images'] = images
 
-            post['author'] = { 'id': user['id'], 'full_name': user['full_name'], 'username': user['username']}
+            # adding author to post
+            post['author'] = { 'id': user['id'], 'full_name': user['full_name'], 'username': user['username'] }
+
             if 'retweets_count' not in post:
                 post['retweets_count'] = 0
             
@@ -1590,7 +1828,7 @@ def timeline():
             
             if 'likes_count' not in post:
                 post['likes_count'] = 0
-
+            
             # didRetweet
             didRetweet = False
             for retweet in post['retweets']:
@@ -1604,25 +1842,26 @@ def timeline():
             for like in post['likes']:
                 if like['user_id'] == get_jwt_identity():
                     didLike = True
-
+            
             post['didLike'] = didLike
 
-            # deleting retweets and likes fields from post dictionary
+            # deleting retweets and likes fields
             del post['retweets']
             del post['likes']
 
             posts.append(post)
         
-        for retweet in user['retweets']: # RETWEET
-            # adding images to post_id
+        for retweet in user['retweets']:
+            # adding images to retweet
             if retweet['post_id']['img_path'] is not None:
-                retweet_resources = api.resources(type='upload', prefix=retweet['post_id']['img_path'])['resources']
-                retweet_images = [image['secure_url'] for image in retweet_resources]
+                images_resources = api.resources(type='upload', prefix=retweet['post_id']['img_path'])['resources']
+                images = [image['secure_url'] for image in images_resources]
             else:
-                retweet_images = []
+                images = []
             
-            retweet['post_id']['images'] = retweet_images
+            retweet['post_id']['images'] = images
 
+            # adding user_id to retweet
             retweet['user_id'] = { 'id': user['id'], 'full_name': user['full_name'], 'username': user['username'] }
 
             if 'retweets_count' not in retweet['post_id']:
@@ -1650,15 +1889,103 @@ def timeline():
             
             retweet['post_id']['didLike'] = didLikePost
 
-            # deleting retweets and likes fields from post_id dictionary
+            # deleting retweets and likes fields
             del retweet['post_id']['retweets']
             del retweet['post_id']['likes']
 
             posts.append(retweet)
     
+    # USER POSTS
+    for post in user_timeline['posts']:
+        # adding images for post
+        if post['img_path'] is not None:
+            images_resources = api.resources(type='upload', prefix=post['img_path'])['resources']
+            images = [image['secure_url'] for image in images_resources]
+        else:
+            images = []
+        
+        post['images'] = images
+
+        # adding author for post
+        post['author'] = { 'id': user_timeline['id'], 'full_name': user_timeline['full_name'], 'username': user_timeline['username'] }
+
+        if 'retweets_count' not in post:
+            post['retweets_count'] = 0
+        
+        if 'comments_count' not in post:
+            post['comments_count'] = 0
+        
+        if 'likes_count' not in post:
+            post['likes_count'] = 0
+        
+        # didRetweet
+        didRetweet = False
+        for retweet in post['retweets']:
+            if retweet['user_id'] == get_jwt_identity():
+                didRetweet = True
+            
+        post['didRetweet'] = didRetweet
+
+        # didLike
+        didLike = False
+        for like in post['likes']:
+            if like['user_id'] == get_jwt_identity():
+                didLike = True
+            
+        post['didLike'] = didLike
+
+        # deleting retweets and likes fields
+        del post['retweets']
+        del post['likes']
+
+        posts.append(post)
+    
+
+    # USER RETWEETS
+    for retweet in user_timeline['retweets']:
+        # adding images to retweet
+        if retweet['post_id']['img_path'] is not None:
+            images_resources = api.resources(type='upload', prefix=retweet['post_id']['img_path'])['resources']
+            images = [image['secure_url'] for image in images_resources]
+        else:
+            images = []
+        
+        retweet['post_id']['images'] = images
+
+        # adding user_id to retweet
+        retweet['user_id'] = { 'id': user_timeline['id'], 'full_name': user_timeline['full_name'], 'username': user_timeline['username'] }
+
+        if 'retweets_count' not in retweet['post_id']:
+            retweet['post_id']['retweets_count'] = 0
+            
+        if 'comments_count' not in retweet['post_id']:
+            retweet['post_id']['comments_count'] = 0
+            
+        if 'likes_count' not in retweet['post_id']:
+            retweet['post_id']['likes_count'] = 0
+            
+        # didRetweet
+        didRetweetPost = False
+        for r in retweet['post_id']['retweets']:
+            if r['user_id'] == get_jwt_identity():
+                didRetweetPost = True
+            
+        retweet['post_id']['didRetweet'] = didRetweetPost
+
+        # didLike
+        didLikePost = False
+        for like in retweet['post_id']['likes']:
+            if like['user_id'] == get_jwt_identity():
+                didLikePost = True
+            
+        retweet['post_id']['didLike'] = didLikePost
+
+        # deleting retweets and likes fields
+        del retweet['post_id']['retweets']
+        del retweet['post_id']['likes']
+
+        posts.append(retweet)
+    
     posts_sorted = sorted(posts, key = lambda i:ObjectId(i['id']).generation_time, reverse=True)
 
-    return {
-        'get': True,
-        'posts': posts_sorted
-    }, 200
+    return { 'get': True, 'posts': posts_sorted }, 200
