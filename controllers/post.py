@@ -555,9 +555,10 @@ def get_all_posts():
         del post['likes']
 
         posts.append(post)
-        
+    
+    posts_sorted = sorted(posts, key = lambda i:ObjectId(i['id']).generation_time, reverse=True)
 
-    return { 'get': True, 'posts': posts }, 200
+    return { 'get': True, 'posts': posts_sorted }, 200
 
 
 # create_comment()
