@@ -8,6 +8,7 @@ from models.post import Post
 from models.retweet import Retweet
 from models.like import Like
 from cloudinary import api
+from bson.objectid import ObjectId
 
 user_bp = Blueprint('user_bp', __name__)
 
@@ -390,6 +391,8 @@ def get_user_posts(user_id):
         'isFollower': isFollower
     }
 
+    data = []
+
     # POST
     posts = user_dict['posts']
 
@@ -441,6 +444,8 @@ def get_user_posts(user_id):
         del post['retweets']
         del post['likes']
 
+        data.append(post)
+
 
     # RETWEET
     retweets = user_dict['retweets']
@@ -483,10 +488,13 @@ def get_user_posts(user_id):
         del retweet['post_id']['retweets']
         del retweet['post_id']['likes']
 
+        data.append(retweet)
+    
+    data_sorted = sorted(data, key = lambda i:ObjectId(i['id']).generation_time, reverse=True)
+
     return {
         'user': user,
-        'posts': posts,
-        'retweets': retweets
+        'posts': data_sorted
     }, 200
 
 

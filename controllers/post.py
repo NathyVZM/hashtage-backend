@@ -10,7 +10,6 @@ from mongoengine.queryset.visitor import Q
 from cloudinary import uploader, api
 import time
 from bson.objectid import ObjectId
-import pprint
 
 post_bp = Blueprint('post_bp', __name__)
 
